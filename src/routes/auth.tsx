@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, type FormEvent } from "react";
-import { Eye, EyeOff, ShieldCheck, Sparkles, Activity, Lock, Loader2 } from "lucide-react";
+import { Eye, EyeOff, ShieldCheck, Lock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth, roleHome, type Role } from "@/lib/auth";
 import { JeevixLogo } from "@/components/hms/Logo";
@@ -15,9 +15,9 @@ export const Route = createFileRoute("/auth")({
 });
 
 const ROLES: { value: Role; label: string; hint: string; demoEmail: string }[] = [
-  { value: "administrator", label: "Administrator", hint: "Hospital command center", demoEmail: "admin@jeevix.health" },
-  { value: "doctor", label: "Doctor", hint: "Consultation workspace", demoEmail: "doctor@jeevix.health" },
-  { value: "nurse", label: "Nurse / Assistant", hint: "Patient preparation queue", demoEmail: "nurse@jeevix.health" },
+  { value: "administrator", label: "Administrator", hint: "Command center", demoEmail: "admin@jeevix.health" },
+  { value: "doctor", label: "Doctor", hint: "Consultation", demoEmail: "doctor@jeevix.health" },
+  { value: "nurse", label: "Nurse", hint: "Patient prep", demoEmail: "nurse@jeevix.health" },
 ];
 
 function AuthPage() {
@@ -58,80 +58,65 @@ function AuthPage() {
   }
 
   return (
-    <div className="grid min-h-screen w-full grid-cols-1 lg:grid-cols-2">
-      {/* Brand Panel */}
-      <section className="relative hidden overflow-hidden bg-primary text-primary-foreground lg:flex lg:flex-col">
-        {/* decorative background */}
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute -left-24 -top-24 h-96 w-96 rounded-full bg-accent/20 blur-3xl" />
-          <div className="absolute -bottom-32 -right-16 h-[28rem] w-[28rem] rounded-full bg-white/10 blur-3xl" />
-          <svg className="absolute inset-0 h-full w-full opacity-[0.06]" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" strokeWidth="0.6" />
-              </pattern>
-            </defs>
-            <rect width="100%" height="100%" fill="url(#grid)" />
-          </svg>
-        </div>
+    <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-gradient-to-br from-[oklch(0.985_0.005_220)] via-[oklch(0.97_0.02_220)] to-[oklch(0.94_0.035_220)] px-4 py-10">
+      {/* Ambient background pattern (low opacity, medical/AI feel) */}
+      <div aria-hidden className="pointer-events-none absolute inset-0">
+        {/* Soft radial glow */}
+        <div className="absolute -left-40 top-1/4 h-[32rem] w-[32rem] rounded-full bg-accent/20 blur-3xl" />
+        <div className="absolute -right-32 bottom-0 h-[36rem] w-[36rem] rounded-full bg-primary/10 blur-3xl" />
+        {/* Subtle grid */}
+        <svg className="absolute inset-0 h-full w-full opacity-[0.04]" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <pattern id="grid-lines" width="48" height="48" patternUnits="userSpaceOnUse">
+              <path d="M 48 0 L 0 0 0 48" fill="none" stroke="currentColor" strokeWidth="0.6" className="text-primary" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#grid-lines)" />
+        </svg>
+        {/* Faint pulse line — medical motif */}
+        <svg
+          className="absolute left-0 top-1/2 h-24 w-full -translate-y-1/2 opacity-[0.05] text-primary"
+          viewBox="0 0 1200 100"
+          fill="none"
+          preserveAspectRatio="none"
+        >
+          <path
+            d="M0 50 L300 50 L340 20 L380 80 L420 10 L460 90 L500 50 L1200 50"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </div>
 
-        <div className="relative z-10 flex flex-1 flex-col p-12">
-          <JeevixLogo variant="light" />
-
-          <div className="mt-24 max-w-lg">
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-medium ring-1 ring-white/15 backdrop-blur">
-              <Sparkles className="h-3.5 w-3.5 text-accent" />
-              AI-Enabled Hospital Operating System
-            </div>
-            <h2 className="text-4xl font-bold leading-[1.1] tracking-tight text-white sm:text-5xl">
-              Intelligence Behind <span className="text-accent">Every Care.</span>
-            </h2>
-            <p className="mt-5 max-w-md text-[15px] leading-relaxed text-white/70">
-              A calm, reliable workspace for administrators, doctors and nurses — unifying OPD, IPD,
-              laboratory, pharmacy, billing and analytics under one enterprise-grade platform.
+      {/* Login card */}
+      <div className="relative z-10 w-full max-w-md">
+        <div className="rounded-2xl border border-border/70 bg-card/95 p-8 shadow-[0_20px_60px_-20px_oklch(0.24_0.15_275_/_0.25)] backdrop-blur-xl sm:p-10">
+          {/* Logo + tagline */}
+          <div className="flex flex-col items-center pb-8 text-center">
+            <JeevixLogo size="lg" className="justify-center" />
+            <p className="mt-5 text-[13px] font-medium tracking-wide text-muted-foreground">
+              Smart Operations. Better Care.
             </p>
+          </div>
 
-            <div className="mt-10 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {[
-                { icon: Activity, title: "Digital Patient Records", copy: "Longitudinal EMR with vitals & timelines." },
-                { icon: Sparkles, title: "AI Clinical Assistance", copy: "Summaries, prescriptions & risk signals." },
-                { icon: ShieldCheck, title: "HIPAA-Ready Architecture", copy: "Role-based access, encrypted at rest." },
-                { icon: Lock, title: "Secure by Design", copy: "Audit logs across every hospital action." },
-              ].map((f) => (
-                <div key={f.title} className="rounded-xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur">
-                  <f.icon className="h-4 w-4 text-accent" />
-                  <div className="mt-3 text-sm font-semibold text-white">{f.title}</div>
-                  <div className="mt-0.5 text-xs text-white/60">{f.copy}</div>
-                </div>
-              ))}
+          {/* Divider */}
+          <div className="relative mb-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="h-px w-full bg-border" />
             </div>
-          </div>
-
-          <div className="mt-auto flex items-center justify-between pt-12 text-xs text-white/50">
-            <span>v2.4 · Enterprise</span>
-            <span>© {new Date().getFullYear()} JEEVIX Health Systems</span>
-          </div>
-        </div>
-      </section>
-
-      {/* Auth Panel */}
-      <section className="flex min-h-screen items-center justify-center bg-background px-6 py-12">
-        <div className="w-full max-w-md">
-          <div className="mb-10 flex items-center justify-between lg:hidden">
-            <JeevixLogo />
-          </div>
-
-          <div className="mb-8">
-            <h1 className="text-[26px] font-bold tracking-tight text-foreground">Welcome back</h1>
-            <p className="mt-1.5 text-sm text-muted-foreground">
-              Sign in to your hospital account to continue.
-            </p>
+            <div className="relative flex justify-center">
+              <span className="bg-card px-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                Sign in
+              </span>
+            </div>
           </div>
 
           {/* Role picker */}
-          <div className="mb-6">
-            <Label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Signing in as
+          <div className="mb-5">
+            <Label className="mb-2 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Continue as
             </Label>
             <div className="grid grid-cols-3 gap-2">
               {ROLES.map((r) => (
@@ -140,16 +125,16 @@ function AuthPage() {
                   type="button"
                   onClick={() => setRole(r.value)}
                   className={cn(
-                    "rounded-lg border px-3 py-2.5 text-left transition-all",
+                    "rounded-lg border px-2.5 py-2 text-left transition-all",
                     role === r.value
-                      ? "border-primary bg-primary/[0.04] shadow-[0_0_0_3px_var(--primary)/8]"
-                      : "border-border bg-card hover:border-accent/50",
+                      ? "border-primary bg-primary/[0.05] ring-2 ring-primary/15"
+                      : "border-border bg-card hover:border-accent/50 hover:bg-accent/[0.03]",
                   )}
                 >
-                  <div className={cn("text-[13px] font-semibold", role === r.value ? "text-primary" : "text-foreground")}>
+                  <div className={cn("text-[12px] font-semibold", role === r.value ? "text-primary" : "text-foreground")}>
                     {r.label}
                   </div>
-                  <div className="mt-0.5 text-[11px] leading-tight text-muted-foreground">{r.hint}</div>
+                  <div className="mt-0.5 text-[10px] leading-tight text-muted-foreground">{r.hint}</div>
                 </button>
               ))}
             </div>
@@ -204,7 +189,7 @@ function AuthPage() {
               </label>
               <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
                 <ShieldCheck className="h-3.5 w-3.5 text-success" />
-                Encrypted session
+                Encrypted
               </div>
             </div>
 
@@ -214,7 +199,11 @@ function AuthPage() {
               </div>
             )}
 
-            <Button type="submit" disabled={submitting} className="h-11 w-full text-[15px] font-semibold">
+            <Button
+              type="submit"
+              disabled={submitting}
+              className="h-11 w-full bg-gradient-to-r from-primary to-accent text-[15px] font-semibold shadow-[0_8px_24px_-8px_var(--primary)] hover:opacity-95"
+            >
               {submitting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" /> Signing in…
@@ -224,17 +213,19 @@ function AuthPage() {
               )}
             </Button>
 
-            <p className="pt-2 text-center text-xs text-muted-foreground">
-              Protected by role-based access · Audit-logged · v2.4.1
+            <p className="flex items-center justify-center gap-1.5 pt-1 text-[11px] text-muted-foreground">
+              <Lock className="h-3 w-3" />
+              Role-based access · Audit-logged · v2.4.1
             </p>
           </form>
-
-          <div className="mt-10 flex items-center justify-between text-xs text-muted-foreground">
-            <span>Need help? support@jeevix.health</span>
-            <span>© {new Date().getFullYear()}</span>
-          </div>
         </div>
-      </section>
+
+        <p className="mt-6 text-center text-xs text-muted-foreground">
+          Need help? <a className="font-medium text-accent hover:underline" href="mailto:support@jeevix.health">support@jeevix.health</a>
+          <span className="mx-2">·</span>
+          © {new Date().getFullYear()} JEEVIX Health Systems
+        </p>
+      </div>
     </div>
   );
 }
