@@ -180,7 +180,7 @@ function AuthPage() {
         <main className="relative flex items-center justify-center px-5 py-10 sm:px-10 lg:px-12">
           <div className="relative z-10 w-full max-w-md animate-in fade-in slide-in-from-bottom-3 duration-700">
             {/* Enterprise card — dark navy, soft border, small shadow */}
-            <div className="rounded-2xl border border-white/10 bg-[#0F172A]/85 p-7 shadow-[0_20px_60px_-30px_rgba(0,0,0,0.8)] backdrop-blur-xl sm:p-9">
+            <div className="rounded-2xl border border-white/15 bg-[#22357A]/70 p-7 shadow-[0_20px_60px_-30px_rgba(15,25,60,0.6)] backdrop-blur-xl sm:p-9">
               <div className="mb-7">
                 <h2 className="text-[26px] font-bold tracking-tight text-white">Welcome back</h2>
                 <p className="mt-1.5 text-[13.5px] text-white/60">Login to your hospital workspace.</p>
