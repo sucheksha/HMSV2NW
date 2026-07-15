@@ -329,7 +329,7 @@ function AuthPage() {
       </div>
 
       {/* Bottom "Powered by JEEVIX" ribbon */}
-      <footer className="relative z-10 border-t border-white/5 bg-[#0B1024]/60 px-6 py-3 text-center text-[10.5px] font-medium uppercase tracking-[0.28em] text-white/45 backdrop-blur-sm sm:px-10">
+      <footer className="relative z-10 border-t border-white/10 bg-[#1E2A5A]/50 px-6 py-3 text-center text-[10.5px] font-medium uppercase tracking-[0.28em] text-white/60 backdrop-blur-sm sm:px-10">
         Powered by JEEVIX Hospital Operating System
       </footer>
     </div>
