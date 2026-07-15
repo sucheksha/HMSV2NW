@@ -131,9 +131,9 @@ function AuthPage() {
               alt={HOSPITAL.name}
               className="h-full w-full animate-in fade-in duration-1000 object-cover"
             />
-            {/* Dark gradient overlay (60% → 90%) for legibility */}
-            <div className="absolute inset-0 bg-gradient-to-br from-[#0B1024]/70 via-[#0B1024]/60 to-[#14106B]/85" />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#0B1024] via-[#0B1024]/40 to-transparent" />
+            {/* Lighter gradient overlay for legibility while keeping image visible */}
+            <div className="absolute inset-0 bg-gradient-to-br from-[#1E2A5A]/55 via-[#22357A]/45 to-[#1779B4]/65" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#1E2A5A]/75 via-[#22357A]/25 to-transparent" />
           </div>
 
           {/* Content */}
