@@ -100,12 +100,12 @@ function AuthPage() {
   }
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-[#0B1024] text-white">
+    <div className="relative min-h-screen w-full overflow-hidden bg-gradient-to-br from-[#1E2A5A] via-[#22357A] to-[#2B4A8A] text-white">
       {/* Ambient background — soft radial lighting */}
       <div aria-hidden className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-40 top-1/3 h-[36rem] w-[36rem] rounded-full bg-[#14106B]/60 blur-[140px]" />
-        <div className="absolute -right-40 -top-40 h-[32rem] w-[32rem] rounded-full bg-[#1DA8C7]/25 blur-[140px]" />
-        <div className="absolute bottom-0 left-1/2 h-[24rem] w-[80%] -translate-x-1/2 rounded-full bg-[#102A56]/50 blur-[120px]" />
+        <div className="absolute -left-40 top-1/3 h-[36rem] w-[36rem] rounded-full bg-[#3A5BB8]/50 blur-[140px]" />
+        <div className="absolute -right-40 -top-40 h-[32rem] w-[32rem] rounded-full bg-[#1DA8C7]/35 blur-[140px]" />
+        <div className="absolute bottom-0 left-1/2 h-[24rem] w-[80%] -translate-x-1/2 rounded-full bg-[#82CBDB]/25 blur-[120px]" />
       </div>
 
       {/* Top brand bar — JEEVIX master brand (constant) */}
@@ -131,9 +131,9 @@ function AuthPage() {
               alt={HOSPITAL.name}
               className="h-full w-full animate-in fade-in duration-1000 object-cover"
             />
-            {/* Dark gradient overlay (60% → 90%) for legibility */}
-            <div className="absolute inset-0 bg-gradient-to-br from-[#0B1024]/70 via-[#0B1024]/60 to-[#14106B]/85" />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#0B1024] via-[#0B1024]/40 to-transparent" />
+            {/* Lighter gradient overlay for legibility while keeping image visible */}
+            <div className="absolute inset-0 bg-gradient-to-br from-[#1E2A5A]/55 via-[#22357A]/45 to-[#1779B4]/65" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#1E2A5A]/75 via-[#22357A]/25 to-transparent" />
           </div>
 
           {/* Content */}
@@ -180,7 +180,7 @@ function AuthPage() {
         <main className="relative flex items-center justify-center px-5 py-10 sm:px-10 lg:px-12">
           <div className="relative z-10 w-full max-w-md animate-in fade-in slide-in-from-bottom-3 duration-700">
             {/* Enterprise card — dark navy, soft border, small shadow */}
-            <div className="rounded-2xl border border-white/10 bg-[#0F172A]/85 p-7 shadow-[0_20px_60px_-30px_rgba(0,0,0,0.8)] backdrop-blur-xl sm:p-9">
+            <div className="rounded-2xl border border-white/15 bg-[#22357A]/70 p-7 shadow-[0_20px_60px_-30px_rgba(15,25,60,0.6)] backdrop-blur-xl sm:p-9">
               <div className="mb-7">
                 <h2 className="text-[26px] font-bold tracking-tight text-white">Welcome back</h2>
                 <p className="mt-1.5 text-[13.5px] text-white/60">Login to your hospital workspace.</p>
@@ -329,7 +329,7 @@ function AuthPage() {
       </div>
 
       {/* Bottom "Powered by JEEVIX" ribbon */}
-      <footer className="relative z-10 border-t border-white/5 bg-[#0B1024]/60 px-6 py-3 text-center text-[10.5px] font-medium uppercase tracking-[0.28em] text-white/45 backdrop-blur-sm sm:px-10">
+      <footer className="relative z-10 border-t border-white/10 bg-[#1E2A5A]/50 px-6 py-3 text-center text-[10.5px] font-medium uppercase tracking-[0.28em] text-white/60 backdrop-blur-sm sm:px-10">
         Powered by JEEVIX Hospital Operating System
       </footer>
     </div>
