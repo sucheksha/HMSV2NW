@@ -87,12 +87,12 @@ function AuthPage() {
             </svg>
           </div>
 
-          {/* Top — JEEVIX brand (constant) */}
+          {/* Top — JEEVIX brand (constant). Wordmark + tagline are baked into the asset. */}
           <div className="relative z-10 flex animate-in fade-in slide-in-from-top-2 duration-700">
-            <JeevixLogo size="md" variant="light" />
+            <JeevixLogo size="xl" variant="light" />
           </div>
-          <p className="relative z-10 mt-4 max-w-md text-sm font-medium tracking-wide text-white/70">
-            Smart Operations. Better Care.
+          <p className="relative z-10 mt-3 max-w-md text-[11px] font-semibold uppercase tracking-[0.28em] text-white/60">
+            AI-Powered Hospital Operating System
           </p>
 
           {/* Middle — Hospital image + info card (dynamic) */}
