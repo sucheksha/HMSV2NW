@@ -100,12 +100,12 @@ function AuthPage() {
   }
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-[#0B1024] text-white">
+    <div className="relative min-h-screen w-full overflow-hidden bg-gradient-to-br from-[#1E2A5A] via-[#22357A] to-[#2B4A8A] text-white">
       {/* Ambient background — soft radial lighting */}
       <div aria-hidden className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-40 top-1/3 h-[36rem] w-[36rem] rounded-full bg-[#14106B]/60 blur-[140px]" />
-        <div className="absolute -right-40 -top-40 h-[32rem] w-[32rem] rounded-full bg-[#1DA8C7]/25 blur-[140px]" />
-        <div className="absolute bottom-0 left-1/2 h-[24rem] w-[80%] -translate-x-1/2 rounded-full bg-[#102A56]/50 blur-[120px]" />
+        <div className="absolute -left-40 top-1/3 h-[36rem] w-[36rem] rounded-full bg-[#3A5BB8]/50 blur-[140px]" />
+        <div className="absolute -right-40 -top-40 h-[32rem] w-[32rem] rounded-full bg-[#1DA8C7]/35 blur-[140px]" />
+        <div className="absolute bottom-0 left-1/2 h-[24rem] w-[80%] -translate-x-1/2 rounded-full bg-[#82CBDB]/25 blur-[120px]" />
       </div>
 
       {/* Top brand bar — JEEVIX master brand (constant) */}
