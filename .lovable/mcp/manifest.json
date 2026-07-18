@@ -1,0 +1,148 @@
+{
+  "version": 1,
+  "sdk_version": "0.23.0",
+  "path": "/mcp",
+  "auth": {
+    "type": "none"
+  },
+  "mcp": {
+    "server": {
+      "name": "jeevix-hms-mcp",
+      "version": "0.1.0",
+      "title": "JEEVIX Hospital Operating System"
+    },
+    "tools": [
+      {
+        "name": "list_hospital_kpis",
+        "title": "List hospital KPIs",
+        "description": "Return today's operational KPIs for the hospital (patients, appointments, admissions, revenue, occupancy, staff).",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_appointments",
+        "title": "List appointment queue",
+        "description": "List today's appointment queue. Optionally filter by department, doctor, or status (case-insensitive substring match).",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "department": {
+              "description": "Department name filter, e.g. 'Cardiology'.",
+              "type": "string"
+            },
+            "doctor": {
+              "description": "Doctor name filter, e.g. 'Dr. Shah'.",
+              "type": "string"
+            },
+            "status": {
+              "description": "Status filter, e.g. 'Waiting', 'Ready', 'In consultation'.",
+              "type": "string"
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "department_performance",
+        "title": "Department performance",
+        "description": "Return per-department patient volume and revenue (in ₹ thousands) for the current period.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_trends",
+        "title": "Get patient & revenue trends",
+        "description": "Return the weekly OPD/IPD patient trend and monthly revenue vs. expense trend (revenue/expense in ₹ lakhs).",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_notifications",
+        "title": "List notifications",
+        "description": "List recent hospital notifications. Optionally filter by type: critical, warning, info.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "type": {
+              "description": "Notification severity filter.",
+              "type": "string",
+              "enum": [
+                "critical",
+                "warning",
+                "info"
+              ]
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_clinical_queue",
+        "title": "List clinical queue",
+        "description": "List the current work queue for a clinical role. Use 'doctor' for consultation queue or 'nurse' for the preparation queue.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "role": {
+              "type": "string",
+              "enum": [
+                "doctor",
+                "nurse"
+              ],
+              "description": "Which queue to fetch."
+            }
+          },
+          "required": [
+            "role"
+          ]
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
