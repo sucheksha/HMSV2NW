@@ -13,7 +13,7 @@ import {
   type HospitalProfile,
 } from "@/lib/hospital-profile";
 
-export const Route = createFileRoute("/_app/module/hospital-profile")({
+export const Route = createFileRoute("/_app/module/hospital")({
   component: HospitalProfilePage,
 });
 
