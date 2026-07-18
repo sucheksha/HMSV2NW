@@ -8,10 +8,8 @@ import {
   Loader2,
   MapPin,
   Phone,
-  Mail,
   Globe,
-  Clock,
-  Siren,
+  BedDouble,
   BadgeCheck,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -22,7 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
-import hospitalHero from "@/assets/hospital-hero.jpg";
+import { useHospitalProfile } from "@/lib/hospital-profile";
 
 export const Route = createFileRoute("/auth")({
   component: AuthPage,
@@ -44,27 +42,12 @@ const ROLES: { value: Role; label: string; hint: string; demoEmail: string }[] =
   { value: "nurse", label: "Nurse", hint: "Patient prep", demoEmail: "nurse@jeevix.health" },
 ];
 
-// Hospital profile — configurable per-tenant from Hospital Settings in production.
-const HOSPITAL = {
-  name: "Aster Medcity",
-  tagline: "Quaternary Care · Advanced Clinical Excellence",
-  description:
-    "A 670-bed quaternary care hospital delivering advanced cardiac, neuro, and transplant care with AI-assisted clinical workflows.",
-  address: "Kuttisahib Road, Cheranalloor, Kochi 682027, Kerala",
-  phone: "+91 484 669 9999",
-  email: "info@astermedcity.com",
-  website: "astermedcity.com",
-  emergency: "+91 484 669 9000",
-  hours: "24 × 7 · Emergency & Inpatient",
-  accreditation: "NABH · JCI Accredited",
-  image: hospitalHero,
-};
-
 const APP_VERSION = "v2.4.1";
 
 function AuthPage() {
   const { login, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const [hospital] = useHospitalProfile();
   const [role, setRole] = useState<Role>("administrator");
   const [email, setEmail] = useState("admin@jeevix.health");
   const [password, setPassword] = useState("Jeevix@2026");
@@ -99,224 +82,193 @@ function AuthPage() {
     }
   }
 
+  const location = [hospital.city, hospital.state, hospital.country].filter(Boolean).join(", ");
+
   return (
-    <div className="relative min-h-screen w-full overflow-hidden bg-gradient-to-br from-[#1E2A5A] via-[#22357A] to-[#2B4A8A] text-white">
-      {/* Ambient background — soft radial lighting */}
-      <div aria-hidden className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-40 top-1/3 h-[36rem] w-[36rem] rounded-full bg-[#3A5BB8]/50 blur-[140px]" />
-        <div className="absolute -right-40 -top-40 h-[32rem] w-[32rem] rounded-full bg-[#1DA8C7]/35 blur-[140px]" />
-        <div className="absolute bottom-0 left-1/2 h-[24rem] w-[80%] -translate-x-1/2 rounded-full bg-[#82CBDB]/25 blur-[120px]" />
-      </div>
-
-      {/* Top brand bar — JEEVIX master brand (constant) */}
-      <header className="relative z-30 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-6 py-5 sm:px-10">
-        <div className="flex min-w-0 items-center gap-3">
-          <JeevixLogo size="md" variant="light" />
-        </div>
-        <div className="hidden text-right sm:block">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-white/60">
-            Smart Operations · Better Care
-          </p>
-          <p className="mt-0.5 text-[10px] text-white/40">AI-Powered Hospital Operating System</p>
-        </div>
-      </header>
-
-      <div className="relative z-10 grid min-h-[calc(100vh-88px)] w-full grid-cols-1 lg:grid-cols-2 xl:grid-cols-[3fr_2fr]">
+    <div className="min-h-screen w-full bg-background text-foreground">
+      <div className="mx-auto grid min-h-screen w-full grid-cols-1 lg:grid-cols-2">
         {/* ============ LEFT — Hospital identity ============ */}
-        <aside className="relative flex flex-col overflow-hidden lg:min-h-[calc(100vh-88px)]">
-          {/* Hospital hero image occupies full panel */}
+        <aside className="relative flex flex-col overflow-hidden bg-secondary/40 lg:min-h-screen">
+          {/* Cover image */}
           <div className="absolute inset-0">
             <img
-              src={HOSPITAL.image}
-              alt={HOSPITAL.name}
-              className="h-full w-full animate-in fade-in duration-1000 object-cover"
+              src={hospital.coverUrl}
+              alt={hospital.name}
+              className="h-full w-full object-cover"
             />
-            {/* Lighter gradient overlay for legibility while keeping image visible */}
-            <div className="absolute inset-0 bg-gradient-to-br from-[#1E2A5A]/55 via-[#22357A]/45 to-[#1779B4]/65" />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#1E2A5A]/75 via-[#22357A]/25 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/85 via-primary/65 to-accent/55" />
           </div>
 
-          {/* Content */}
-          <div className="relative z-10 flex flex-1 flex-col justify-between p-8 sm:p-12">
-            {/* Accreditation chip top */}
-            <div className="flex animate-in fade-in slide-in-from-top-2 duration-700">
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.06] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/85 backdrop-blur-md">
-                <BadgeCheck className="h-3.5 w-3.5 text-[#82CBDB]" />
-                {HOSPITAL.accreditation}
+          <div className="relative z-10 flex flex-1 flex-col justify-between p-8 sm:p-12 text-white">
+            {/* Top: JEEVIX brand */}
+            <div className="flex items-center justify-between">
+              <JeevixLogo size="md" variant="light" />
+              <div className="hidden items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1.5 text-[10.5px] font-semibold uppercase tracking-[0.18em] text-white backdrop-blur-md sm:inline-flex">
+                <BadgeCheck className="h-3.5 w-3.5" />
+                NABH · JCI
               </div>
             </div>
 
-            {/* Hospital identity block */}
-            <div className="mt-auto animate-in fade-in slide-in-from-bottom-4 duration-700">
-              {/* Hospital logo mark */}
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/15 bg-white/[0.08] text-lg font-black tracking-tight text-white shadow-[0_8px_30px_-8px_rgba(29,168,199,0.4)] backdrop-blur-md">
-                {HOSPITAL.name
-                  .split(" ")
-                  .slice(0, 2)
-                  .map((w) => w[0])
-                  .join("")}
-              </div>
-
-              <h1 className="mt-5 text-3xl font-bold leading-tight tracking-tight sm:text-4xl lg:text-[42px]">
-                {HOSPITAL.name}
+            {/* Middle: welcome + hospital info */}
+            <div className="my-10 max-w-xl animate-in fade-in slide-in-from-bottom-2 duration-700">
+              {hospital.logoUrl && (
+                <img
+                  src={hospital.logoUrl}
+                  alt={`${hospital.name} logo`}
+                  className="mb-5 h-14 w-14 rounded-2xl border border-white/25 bg-white/10 object-contain p-2 backdrop-blur-md"
+                />
+              )}
+              <p className="text-sm font-medium uppercase tracking-[0.24em] text-white/80">
+                {hospital.welcomeMessage}
+              </p>
+              <h1 className="mt-2 text-[34px] font-bold leading-tight tracking-tight sm:text-[42px]">
+                {hospital.name}
               </h1>
-              <p className="mt-2 text-sm font-medium text-[#82CBDB] sm:text-[15px]">{HOSPITAL.tagline}</p>
-              <p className="mt-4 max-w-xl text-[13.5px] leading-relaxed text-white/75">{HOSPITAL.description}</p>
+              <p className="mt-4 max-w-lg text-[14px] leading-relaxed text-white/85">
+                {hospital.description}
+              </p>
 
-              {/* Contact grid */}
-              <div className="mt-7 grid max-w-xl grid-cols-1 gap-x-6 gap-y-3 text-[12.5px] text-white/80 sm:grid-cols-2">
-                <InfoRow icon={MapPin} text={HOSPITAL.address} />
-                <InfoRow icon={Phone} text={HOSPITAL.phone} />
-                <InfoRow icon={Mail} text={HOSPITAL.email} />
-                <InfoRow icon={Globe} text={HOSPITAL.website} />
-                <InfoRow icon={Siren} text={`Emergency ${HOSPITAL.emergency}`} accent />
-                <InfoRow icon={Clock} text={HOSPITAL.hours} />
+              <div className="mt-8 grid max-w-lg grid-cols-1 gap-3 text-[13px] text-white/85 sm:grid-cols-2">
+                <InfoRow icon={MapPin} text={location || hospital.address} />
+                <InfoRow icon={Phone} text={hospital.phone} />
+                <InfoRow icon={Globe} text={hospital.website} />
+                <InfoRow icon={BedDouble} text={`${hospital.beds} beds · ${hospital.type}`} />
               </div>
             </div>
+
+            {/* Bottom: powered by */}
+            <p className="text-[11px] font-medium uppercase tracking-[0.28em] text-white/70">
+              Powered by JEEVIX Hospital Operating System
+            </p>
           </div>
         </aside>
 
         {/* ============ RIGHT — Authentication ============ */}
-        <main className="relative flex items-center justify-center px-5 py-10 sm:px-10 lg:px-12">
-          <div className="relative z-10 w-full max-w-md animate-in fade-in slide-in-from-bottom-3 duration-700">
-            {/* Enterprise card — dark navy, soft border, small shadow */}
-            <div className="rounded-2xl border border-white/15 bg-[#22357A]/70 p-7 shadow-[0_20px_60px_-30px_rgba(15,25,60,0.6)] backdrop-blur-xl sm:p-9">
-              <div className="mb-7">
-                <h2 className="text-[26px] font-bold tracking-tight text-white">Welcome back</h2>
-                <p className="mt-1.5 text-[13.5px] text-white/60">Login to your hospital workspace.</p>
-              </div>
-
-              {/* Role picker */}
-              <div className="mb-6">
-                <Label className="mb-2 block text-[10.5px] font-semibold uppercase tracking-[0.18em] text-white/50">
-                  Continue as
-                </Label>
-                <div className="grid grid-cols-3 gap-2">
-                  {ROLES.map((r) => (
-                    <button
-                      key={r.value}
-                      type="button"
-                      onClick={() => setRole(r.value)}
-                      className={cn(
-                        "rounded-xl border px-2.5 py-2.5 text-left transition-all",
-                        role === r.value
-                          ? "border-[#1DA8C7]/60 bg-[#1DA8C7]/10 ring-1 ring-[#1DA8C7]/40"
-                          : "border-white/10 bg-white/[0.03] hover:border-white/25 hover:bg-white/[0.06]",
-                      )}
-                    >
-                      <div
-                        className={cn(
-                          "text-[12px] font-semibold",
-                          role === r.value ? "text-[#82CBDB]" : "text-white/90",
-                        )}
-                      >
-                        {r.label}
-                      </div>
-                      <div className="mt-0.5 text-[10px] leading-tight text-white/45">{r.hint}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="email" className="text-[12.5px] text-white/75">
-                    Hospital Email
-                  </Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    autoComplete="username"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@hospital.com"
-                    className="h-11 rounded-xl border-white/10 bg-white/[0.04] text-white placeholder:text-white/30 transition-all focus-visible:border-[#1DA8C7]/60 focus-visible:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-[#1DA8C7]/30"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="password" className="text-[12.5px] text-white/75">
-                      Password
-                    </Label>
-                    <button
-                      type="button"
-                      className="text-[11.5px] font-medium text-[#82CBDB] hover:text-white"
-                    >
-                      Forgot password?
-                    </button>
-                  </div>
-                  <div className="relative">
-                    <Input
-                      id="password"
-                      type={showPass ? "text" : "password"}
-                      autoComplete="current-password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="h-11 rounded-xl border-white/10 bg-white/[0.04] pr-10 text-white placeholder:text-white/30 transition-all focus-visible:border-[#1DA8C7]/60 focus-visible:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-[#1DA8C7]/30"
-                    />
-                    <button
-                      type="button"
-                      aria-label={showPass ? "Hide password" : "Show password"}
-                      onClick={() => setShowPass((v) => !v)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 hover:text-white"
-                    >
-                      {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between pt-1">
-                  <label className="flex cursor-pointer items-center gap-2 text-[12.5px] text-white/70">
-                    <Checkbox
-                      checked={remember}
-                      onCheckedChange={(v) => setRemember(!!v)}
-                      className="border-white/25 data-[state=checked]:border-[#1DA8C7] data-[state=checked]:bg-[#1DA8C7]"
-                    />
-                    Remember me
-                  </label>
-                  <div className="flex items-center gap-1 text-[11px] text-white/55">
-                    <ShieldCheck className="h-3.5 w-3.5 text-[#82CBDB]" />
-                    256-bit encrypted
-                  </div>
-                </div>
-
-                {error && (
-                  <div
-                    role="alert"
-                    className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-[13px] text-red-200"
-                  >
-                    {error}
-                  </div>
-                )}
-
-                <Button
-                  type="submit"
-                  disabled={submitting}
-                  className="h-11 w-full rounded-xl bg-gradient-to-r from-[#1779B4] to-[#1DA8C7] text-[14.5px] font-semibold text-white shadow-[0_12px_30px_-12px_rgba(29,168,199,0.7)] transition-all hover:from-[#1DA8C7] hover:to-[#1779B4] hover:shadow-[0_16px_36px_-12px_rgba(29,168,199,0.85)] disabled:opacity-70"
-                >
-                  {submitting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Signing in…
-                    </>
-                  ) : (
-                    "Login to Workspace"
-                  )}
-                </Button>
-
-                <p className="flex items-center justify-center gap-1.5 pt-1 text-[11px] text-white/45">
-                  <Lock className="h-3 w-3" />
-                  Role-based access · Audit-logged
-                </p>
-              </form>
+        <main className="relative flex items-center justify-center px-5 py-10 sm:px-10 lg:px-14">
+          <div className="w-full max-w-md animate-in fade-in slide-in-from-bottom-3 duration-500">
+            <div className="mb-8">
+              <h2 className="text-[28px] font-bold tracking-tight text-foreground">Sign in</h2>
+              <p className="mt-1.5 text-[14px] text-muted-foreground">
+                Access your hospital workspace with role-based permissions.
+              </p>
             </div>
 
-            {/* Support / version / copyright */}
-            <div className="mt-6 flex flex-col items-center gap-1.5 text-center text-[11px] text-white/45">
+            {/* Role picker */}
+            <div className="mb-6">
+              <Label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                Continue as
+              </Label>
+              <div className="grid grid-cols-3 gap-2">
+                {ROLES.map((r) => (
+                  <button
+                    key={r.value}
+                    type="button"
+                    onClick={() => setRole(r.value)}
+                    className={cn(
+                      "rounded-xl border px-2.5 py-2.5 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+                      role === r.value
+                        ? "border-primary/50 bg-primary/5 ring-1 ring-primary/30"
+                        : "border-border bg-card hover:border-primary/30 hover:bg-secondary/50",
+                    )}
+                  >
+                    <div className={cn("text-[12.5px] font-semibold", role === r.value ? "text-primary" : "text-foreground")}>
+                      {r.label}
+                    </div>
+                    <div className="mt-0.5 text-[10.5px] leading-tight text-muted-foreground">{r.hint}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="email" className="text-[13px] font-medium text-foreground">
+                  Email address
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  autoComplete="username"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@hospital.com"
+                  className="h-11 rounded-xl"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password" className="text-[13px] font-medium text-foreground">
+                    Password
+                  </Label>
+                  <button type="button" className="text-[12px] font-medium text-primary hover:underline">
+                    Forgot password?
+                  </button>
+                </div>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPass ? "text" : "password"}
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="h-11 rounded-xl pr-10"
+                  />
+                  <button
+                    type="button"
+                    aria-label={showPass ? "Hide password" : "Show password"}
+                    onClick={() => setShowPass((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-1">
+                <label className="flex cursor-pointer items-center gap-2 text-[13px] text-foreground">
+                  <Checkbox checked={remember} onCheckedChange={(v) => setRemember(!!v)} />
+                  Remember me
+                </label>
+                <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                  <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+                  256-bit encrypted
+                </div>
+              </div>
+
+              {error && (
+                <div
+                  role="alert"
+                  className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-[13px] text-destructive"
+                >
+                  {error}
+                </div>
+              )}
+
+              <Button
+                type="submit"
+                disabled={submitting}
+                className="h-11 w-full rounded-xl text-[14.5px] font-semibold"
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Signing in…
+                  </>
+                ) : (
+                  "Sign in to Workspace"
+                )}
+              </Button>
+
+              <p className="flex items-center justify-center gap-1.5 pt-1 text-[11.5px] text-muted-foreground">
+                <Lock className="h-3 w-3" /> Role-based access · Audit-logged
+              </p>
+            </form>
+
+            <div className="mt-8 flex flex-col items-center gap-1 text-center text-[11.5px] text-muted-foreground">
               <p>
                 Need help?{" "}
-                <a className="font-medium text-[#82CBDB] hover:text-white" href="mailto:support@jeevix.health">
+                <a className="font-medium text-primary hover:underline" href="mailto:support@jeevix.health">
                   support@jeevix.health
                 </a>
               </p>
@@ -327,11 +279,6 @@ function AuthPage() {
           </div>
         </main>
       </div>
-
-      {/* Bottom "Powered by JEEVIX" ribbon */}
-      <footer className="relative z-10 border-t border-white/10 bg-[#1E2A5A]/50 px-6 py-3 text-center text-[10.5px] font-medium uppercase tracking-[0.28em] text-white/60 backdrop-blur-sm sm:px-10">
-        Powered by JEEVIX Hospital Operating System
-      </footer>
     </div>
   );
 }
@@ -339,21 +286,14 @@ function AuthPage() {
 function InfoRow({
   icon: Icon,
   text,
-  accent = false,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   text: string;
-  accent?: boolean;
 }) {
   return (
     <div className="flex min-w-0 items-start gap-2">
-      <Icon
-        className={cn(
-          "mt-0.5 h-3.5 w-3.5 shrink-0",
-          accent ? "text-red-300" : "text-[#82CBDB]",
-        )}
-      />
-      <span className={cn("truncate", accent && "font-medium text-white/90")}>{text}</span>
+      <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-white/80" />
+      <span className="truncate">{text}</span>
     </div>
   );
 }

@@ -18,6 +18,8 @@ import { Route as AppDoctorRouteImport } from './routes/_app/doctor'
 import { Route as AppAdminRouteImport } from './routes/_app/admin'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
+import { Route as AppModuleSubscriptionRouteImport } from './routes/_app/module.subscription'
+import { Route as AppModuleHospitalProfileRouteImport } from './routes/_app/module.hospital-profile'
 import { Route as AppModuleNameRouteImport } from './routes/_app/module.$name'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 
@@ -67,6 +69,17 @@ const Char91DotmcpChar93ListToolsRoute =
     path: '/.mcp/list-tools',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AppModuleSubscriptionRoute = AppModuleSubscriptionRouteImport.update({
+  id: '/module/subscription',
+  path: '/module/subscription',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppModuleHospitalProfileRoute =
+  AppModuleHospitalProfileRouteImport.update({
+    id: '/module/hospital-profile',
+    path: '/module/hospital-profile',
+    getParentRoute: () => AppRoute,
+  } as any)
 const AppModuleNameRoute = AppModuleNameRouteImport.update({
   id: '/module/$name',
   path: '/module/$name',
@@ -90,6 +103,8 @@ export interface FileRoutesByFullPath {
   '/nurse': typeof AppNurseRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/module/$name': typeof AppModuleNameRoute
+  '/module/hospital-profile': typeof AppModuleHospitalProfileRoute
+  '/module/subscription': typeof AppModuleSubscriptionRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -102,6 +117,8 @@ export interface FileRoutesByTo {
   '/nurse': typeof AppNurseRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/module/$name': typeof AppModuleNameRoute
+  '/module/hospital-profile': typeof AppModuleHospitalProfileRoute
+  '/module/subscription': typeof AppModuleSubscriptionRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -116,6 +133,8 @@ export interface FileRoutesById {
   '/_app/nurse': typeof AppNurseRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/_app/module/$name': typeof AppModuleNameRoute
+  '/_app/module/hospital-profile': typeof AppModuleHospitalProfileRoute
+  '/_app/module/subscription': typeof AppModuleSubscriptionRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -130,6 +149,8 @@ export interface FileRouteTypes {
     | '/nurse'
     | '/.mcp/invoke-tool/$tool'
     | '/module/$name'
+    | '/module/hospital-profile'
+    | '/module/subscription'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -142,6 +163,8 @@ export interface FileRouteTypes {
     | '/nurse'
     | '/.mcp/invoke-tool/$tool'
     | '/module/$name'
+    | '/module/hospital-profile'
+    | '/module/subscription'
   id:
     | '__root__'
     | '/'
@@ -155,6 +178,8 @@ export interface FileRouteTypes {
     | '/_app/nurse'
     | '/.mcp/invoke-tool/$tool'
     | '/_app/module/$name'
+    | '/_app/module/hospital-profile'
+    | '/_app/module/subscription'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -232,6 +257,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof Char91DotmcpChar93ListToolsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/module/subscription': {
+      id: '/_app/module/subscription'
+      path: '/module/subscription'
+      fullPath: '/module/subscription'
+      preLoaderRoute: typeof AppModuleSubscriptionRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/module/hospital-profile': {
+      id: '/_app/module/hospital-profile'
+      path: '/module/hospital-profile'
+      fullPath: '/module/hospital-profile'
+      preLoaderRoute: typeof AppModuleHospitalProfileRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/module/$name': {
       id: '/_app/module/$name'
       path: '/module/$name'
@@ -254,6 +293,8 @@ interface AppRouteChildren {
   AppDoctorRoute: typeof AppDoctorRoute
   AppNurseRoute: typeof AppNurseRoute
   AppModuleNameRoute: typeof AppModuleNameRoute
+  AppModuleHospitalProfileRoute: typeof AppModuleHospitalProfileRoute
+  AppModuleSubscriptionRoute: typeof AppModuleSubscriptionRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
@@ -261,6 +302,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppDoctorRoute: AppDoctorRoute,
   AppNurseRoute: AppNurseRoute,
   AppModuleNameRoute: AppModuleNameRoute,
+  AppModuleHospitalProfileRoute: AppModuleHospitalProfileRoute,
+  AppModuleSubscriptionRoute: AppModuleSubscriptionRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
