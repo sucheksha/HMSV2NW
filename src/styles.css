@@ -93,7 +93,7 @@
   --aqua-light: oklch(0.83 0.06 220);        /* #82CBDB */
   --aqua-soft: oklch(0.92 0.025 220);        /* #B8DDE8 */
 
-  --primary: oklch(0.24 0.15 275);           /* navy */
+  --primary: oklch(0.56 0.12 240);           /* soft ocean blue #1779B4 */
   --primary-foreground: oklch(0.99 0 0);
 
   --secondary: oklch(0.96 0.015 220);
