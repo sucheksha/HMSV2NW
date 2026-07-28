@@ -90,11 +90,15 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         property: "og:description",
         content:
-          "Intelligence Behind Every Care. Run OPD, IPD, laboratory, pharmacy, billing and analytics from a single premium hospital workspace.",
+          "JEEVIX is an enterprise-grade, AI-enabled Hospital Management System for administrators, doctors and nurses. Manage OPD, IPD, laboratory, pharmacy, billing and analytics from one calm, reliable workspace.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@Jeevix" },
+      { name: "twitter:title", content: "JEEVIX — AI-Enabled Hospital Operating System" },
+      { name: "twitter:description", content: "JEEVIX is an enterprise-grade, AI-enabled Hospital Management System for administrators, doctors and nurses. Manage OPD, IPD, laboratory, pharmacy, billing and analytics from one calm, reliable workspace." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/67ccc089-6994-466f-85fc-a775a2676162/id-preview-d75ac834--c14e5fb2-0777-44cf-a73c-e7a953b8b061.lovable.app-1784367801293.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/67ccc089-6994-466f-85fc-a775a2676162/id-preview-d75ac834--c14e5fb2-0777-44cf-a73c-e7a953b8b061.lovable.app-1784367801293.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
