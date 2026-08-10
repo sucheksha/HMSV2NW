@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
+
 import { useAuth } from "@/lib/auth";
 import { AppSidebar } from "@/components/hms/AppSidebar";
 
@@ -13,7 +14,12 @@ function AppLayout() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!loading && !user) navigate({ to: "/auth", replace: true });
+    if (!loading && !user) {
+      navigate({
+        to: "/auth",
+        replace: true,
+      });
+    }
   }, [loading, user, navigate]);
 
   if (loading || !user) {
@@ -28,10 +34,13 @@ function AppLayout() {
   }
 
   return (
-    <div className="flex min-h-screen w-full bg-background">
+    <div className="flex min-h-screen w-full overflow-x-hidden bg-background">
       <AppSidebar />
-      <div className="flex min-w-0 flex-1 flex-col">
+
+      <div className="flex min-w-0 flex-1 flex-col overflow-x-clip">
+        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
         <Outlet />
+      </div>
       </div>
     </div>
   );

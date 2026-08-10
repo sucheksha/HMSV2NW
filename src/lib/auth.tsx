@@ -1,6 +1,8 @@
+import { login as loginApi, logout as logoutApi } from "@/services/auth.service";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
-export type Role = "administrator" | "doctor" | "nurse";
+export type Role =
+  "SUPER_ADMIN" | "HOSPITAL_ADMIN" | "DOCTOR" | "ASSISTANT" | "NURSE" | "RECEPTIONIST";
 
 export interface AuthUser {
   id: string;
@@ -14,34 +16,14 @@ export interface AuthUser {
 interface AuthContextValue {
   user: AuthUser | null;
   loading: boolean;
-  login: (email: string, password: string, role: Role) => Promise<AuthUser>;
-  logout: () => void;
+  login: (loginId: string, password: string) => Promise<AuthUser>;
+  logout: () => Promise<void>;
 }
 
 const STORAGE_KEY = "jeevix.auth.user";
+const TOKEN_KEY = "jeevix.auth.token";
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
-
-const DEMO_PROFILES: Record<Role, Omit<AuthUser, "email">> = {
-  administrator: {
-    id: "usr-admin-01",
-    name: "Dr. Ananya Rao",
-    role: "administrator",
-    title: "Hospital Administrator",
-  },
-  doctor: {
-    id: "usr-doc-14",
-    name: "Dr. Vikram Shah",
-    role: "doctor",
-    title: "Sr. Consultant — Internal Medicine",
-  },
-  nurse: {
-    id: "usr-nur-07",
-    name: "Priya Menon",
-    role: "nurse",
-    title: "Staff Nurse — OPD",
-  },
-};
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -49,41 +31,124 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     try {
-      const raw = typeof window !== "undefined" ? window.localStorage.getItem(STORAGE_KEY) : null;
-      if (raw) setUser(JSON.parse(raw) as AuthUser);
-    } catch {
-      // ignore corrupt storage
+      const raw = localStorage.getItem(STORAGE_KEY);
+      const token = localStorage.getItem(TOKEN_KEY);
+
+      console.log("LocalStorage User:", raw);
+
+      const isTokenValid = (t: string | null) => {
+        if (!t) return false;
+        try {
+          const parts = t.split(".");
+          if (parts.length < 2) return false;
+          const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
+          if (!payload.exp) return true; // no exp claim -> assume valid
+          const now = Math.floor(Date.now() / 1000);
+          return payload.exp > now;
+        } catch (e) {
+          return false;
+        }
+      };
+
+      if (raw && token && isTokenValid(token)) {
+        setUser(JSON.parse(raw));
+      } else {
+        // Clear any invalid or stale auth data
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(TOKEN_KEY);
+        setUser(null);
+      }
+    } catch (error) {
+      console.error(error);
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(TOKEN_KEY);
     }
+
     setLoading(false);
   }, []);
 
-  const login: AuthContextValue["login"] = async (email, _password, role) => {
-    await new Promise((r) => setTimeout(r, 650)); // simulate network
-    const profile = DEMO_PROFILES[role];
-    const next: AuthUser = { ...profile, email };
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  const login: AuthContextValue["login"] = async (loginId, password) => {
+    const response = await loginApi({
+      loginId,
+      password,
+    });
+
+    const { staff, token } = response;
+
+    const next: AuthUser = {
+      id: staff._id,
+      name: staff.displayName,
+      email: staff.email,
+      role: staff.role,
+      title: "",
+    };
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    localStorage.setItem(TOKEN_KEY, token);
+
     setUser(next);
+
     return next;
   };
 
-  const logout = () => {
-    window.localStorage.removeItem(STORAGE_KEY);
-    setUser(null);
+  const logout = async () => {
+    try {
+      await logoutApi();
+    } catch (error) {
+      console.error("Logout API failed:", error);
+    } finally {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(TOKEN_KEY);
+
+      setUser(null);
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>{children}</AuthContext.Provider>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        login,
+        logout,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
   );
 }
 
 export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used inside <AuthProvider>");
-  return ctx;
+  const context = useContext(AuthContext);
+
+  if (!context) {
+    throw new Error("useAuth must be used inside AuthProvider");
+  }
+
+  return context;
 }
 
-export function roleHome(role: Role): string {
-  if (role === "administrator") return "/admin";
-  if (role === "doctor") return "/doctor";
-  return "/nurse";
+export function roleHome(role: Role) {
+  switch (role) {
+    case "SUPER_ADMIN":
+      return "/admin";
+
+    case "HOSPITAL_ADMIN":
+      return "/admin";
+
+    case "DOCTOR":
+      return "/doctor";
+
+    case "ASSISTANT":
+      return "/assistant";
+
+    case "NURSE":
+      return "/nurse";
+
+    case "RECEPTIONIST":
+      return "/receptionist";
+
+    default:
+      return "/auth";
+  }
 }

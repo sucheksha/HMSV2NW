@@ -36,19 +36,13 @@ export const Route = createFileRoute("/auth")({
   }),
 });
 
-const ROLES: { value: Role; label: string; hint: string; demoEmail: string }[] = [
-  { value: "administrator", label: "Administrator", hint: "Command center", demoEmail: "admin@jeevix.health" },
-  { value: "doctor", label: "Doctor", hint: "Consultation", demoEmail: "doctor@jeevix.health" },
-  { value: "nurse", label: "Nurse", hint: "Patient prep", demoEmail: "nurse@jeevix.health" },
-];
-
 const APP_VERSION = "v2.4.1";
 
 function AuthPage() {
   const { login, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [hospital] = useHospitalProfile();
-  const [role, setRole] = useState<Role>("administrator");
+
   const [email, setEmail] = useState("admin@jeevix.health");
   const [password, setPassword] = useState("Jeevix@2026");
   const [remember, setRemember] = useState(true);
@@ -56,23 +50,19 @@ function AuthPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  
   useEffect(() => {
     if (!authLoading && user) navigate({ to: roleHome(user.role), replace: true });
   }, [authLoading, user, navigate]);
 
-  useEffect(() => {
-    const preset = ROLES.find((r) => r.value === role);
-    if (preset) setEmail(preset.demoEmail);
-  }, [role]);
-
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!email.includes("@")) return setError("Enter a valid email address.");
+    if (!email.trim()) return setError("Please enter Email or Mobile Number.");
     if (password.length < 6) return setError("Password must be at least 6 characters.");
     setSubmitting(true);
     try {
-      const u = await login(email, password, role);
+      const u = await login(email, password);
       toast.success(`Welcome back, ${u.name.split(" ")[0]}`);
       navigate({ to: roleHome(u.role), replace: true });
     } catch {
@@ -153,37 +143,10 @@ function AuthPage() {
               </p>
             </div>
 
-            {/* Role picker */}
-            <div className="mb-6">
-              <Label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                Continue as
-              </Label>
-              <div className="grid grid-cols-3 gap-2">
-                {ROLES.map((r) => (
-                  <button
-                    key={r.value}
-                    type="button"
-                    onClick={() => setRole(r.value)}
-                    className={cn(
-                      "rounded-xl border px-2.5 py-2.5 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
-                      role === r.value
-                        ? "border-primary/50 bg-primary/5 ring-1 ring-primary/30"
-                        : "border-border bg-card hover:border-primary/30 hover:bg-secondary/50",
-                    )}
-                  >
-                    <div className={cn("text-[12.5px] font-semibold", role === r.value ? "text-primary" : "text-foreground")}>
-                      {r.label}
-                    </div>
-                    <div className="mt-0.5 text-[10.5px] leading-tight text-muted-foreground">{r.hint}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1.5">
                 <Label htmlFor="email" className="text-[13px] font-medium text-foreground">
-                  Email address
+                  Email address or Mobile Number
                 </Label>
                 <Input
                   id="email"
@@ -191,7 +154,7 @@ function AuthPage() {
                   autoComplete="username"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@hospital.com"
+                  placeholder="Enter Email or Mobile Number"
                   className="h-11 rounded-xl"
                 />
               </div>
@@ -201,7 +164,10 @@ function AuthPage() {
                   <Label htmlFor="password" className="text-[13px] font-medium text-foreground">
                     Password
                   </Label>
-                  <button type="button" className="text-[12px] font-medium text-primary hover:underline">
+                  <button
+                    type="button"
+                    className="text-[12px] font-medium text-primary hover:underline"
+                  >
                     Forgot password?
                   </button>
                 </div>
@@ -268,12 +234,16 @@ function AuthPage() {
             <div className="mt-8 flex flex-col items-center gap-1 text-center text-[11.5px] text-muted-foreground">
               <p>
                 Need help?{" "}
-                <a className="font-medium text-primary hover:underline" href="mailto:support@jeevix.health">
+                <a
+                  className="font-medium text-primary hover:underline"
+                  href="mailto:support@jeevix.health"
+                >
                   support@jeevix.health
                 </a>
               </p>
               <p>
-                JEEVIX Hospital OS · {APP_VERSION} · © {new Date().getFullYear()} JEEVIX Health Systems
+                JEEVIX Hospital OS · {APP_VERSION} · © {new Date().getFullYear()} JEEVIX Health
+                Systems
               </p>
             </div>
           </div>
