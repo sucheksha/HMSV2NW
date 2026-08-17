@@ -363,8 +363,21 @@ const NURSE_NAV: NavGroup[] = [
 ];
 
 function navFor(role: Role): NavGroup[] {
-  if (role === "administrator") return ADMIN_NAV;
-  if (role === "doctor") return DOCTOR_NAV;
+  const normalized = String(role ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/-/g, "_");
+
+  if (
+    normalized === "SUPER_ADMIN" ||
+    normalized === "HOSPITAL_ADMIN" ||
+    normalized === "ADMIN" ||
+    normalized === "ADMINISTRATOR"
+  ) {
+    return ADMIN_NAV;
+  }
+
+  if (normalized === "DOCTOR") return DOCTOR_NAV;
   return NURSE_NAV;
 }
 

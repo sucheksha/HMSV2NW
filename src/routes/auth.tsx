@@ -20,7 +20,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
-import { useHospitalProfile } from "@/lib/hospital-profile";
 
 export const Route = createFileRoute("/auth")({
   component: AuthPage,
@@ -38,19 +37,35 @@ export const Route = createFileRoute("/auth")({
 
 const APP_VERSION = "v2.4.1";
 
+const fallbackHospital = {
+  name: "JEEVIX Hospital OS",
+  coverUrl: "",
+  logoUrl: "",
+  welcomeMessage: "Hospital Management System",
+  description:
+    "Securely manage your hospital operations with role-based access, centralized hospital information, and connected healthcare workflows.",
+  address: "Bengaluru, Karnataka, India",
+  city: "Bengaluru",
+  state: "Karnataka",
+  country: "India",
+  phone: "+91 80 0000 0000",
+  website: "www.jeevix.health",
+  beds: 320,
+  type: "Multi-specialty",
+};
+
 function AuthPage() {
   const { login, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [hospital] = useHospitalProfile();
+  const hospital = fallbackHospital;
 
-  const [email, setEmail] = useState("admin@jeevix.health");
-  const [password, setPassword] = useState("Jeevix@2026");
+  const [email, setEmail] = useState("superadmin@hospital.com");
+  const [password, setPassword] = useState("Admin@123");
   const [remember, setRemember] = useState(true);
   const [showPass, setShowPass] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  
   useEffect(() => {
     if (!authLoading && user) navigate({ to: roleHome(user.role), replace: true });
   }, [authLoading, user, navigate]);
@@ -81,11 +96,15 @@ function AuthPage() {
         <aside className="relative flex flex-col overflow-hidden bg-secondary/40 lg:min-h-screen">
           {/* Cover image */}
           <div className="absolute inset-0">
-            <img
-              src={hospital.coverUrl}
-              alt={hospital.name}
-              className="h-full w-full object-cover"
-            />
+            {hospital.coverUrl ? (
+              <img
+                src={hospital.coverUrl}
+                alt={hospital.name}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="h-full w-full bg-gradient-to-br from-primary/90 via-primary/70 to-accent/60" />
+            )}
             <div className="absolute inset-0 bg-gradient-to-br from-primary/85 via-primary/65 to-accent/55" />
           </div>
 

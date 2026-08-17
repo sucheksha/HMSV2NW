@@ -5,7 +5,17 @@ import { useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 interface TopBarProps {
   title: string;
   subtitle?: string;
@@ -29,7 +39,7 @@ export function TopBar({ title, subtitle }: TopBarProps) {
   };
 
   return (
-<header className="sticky top-0 z-50 flex min-h-16 w-full shrink-0 items-center justify-between gap-3 border-b border-border bg-background/95 px-4 backdrop-blur sm:px-6">
+    <header className="sticky top-0 z-50 flex min-h-16 w-full shrink-0 items-center justify-between gap-3 border-b border-border bg-background/95 px-4 backdrop-blur sm:px-6">
       {/* Left side - Page title */}
       <div className="min-w-0 flex-1 pl-12 lg:pl-0">
         <h1 className="truncate text-lg font-semibold text-foreground sm:text-xl">{title}</h1>
@@ -103,17 +113,37 @@ export function TopBar({ title, subtitle }: TopBarProps) {
             </div>
 
             {/* Logout */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleLogout}
-              aria-label="Logout"
-              title="Logout"
-              className="shrink-0 text-muted-foreground hover:text-destructive"
-            >
-              <LogOut className="h-4 w-4" />
-              <span className="sr-only">Logout</span>
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Logout"
+                  title="Logout"
+                  className="shrink-0 text-muted-foreground hover:text-destructive"
+                >
+                  <LogOut className="h-4 w-4" />
+                  <span className="sr-only">Logout</span>
+                </Button>
+              </AlertDialogTrigger>
+
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you sure you want to logout?</AlertDialogTitle>
+
+                  <AlertDialogDescription>
+                    You will be signed out of your hospital management system session and redirected
+                    to the login page.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+
+                  <AlertDialogAction onClick={handleLogout}>Logout</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         )}
       </div>

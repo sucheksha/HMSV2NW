@@ -1,72 +1,135 @@
 import { useEffect, useState } from "react";
-import hospitalHero from "@/assets/hospital-hero.jpg";
+import api from "@/services/api";
 
-export interface HospitalProfile {
-  name: string;
-  description: string;
-  welcomeMessage: string;
-  logoUrl: string | null;
-  coverUrl: string;
-  address: string;
+export interface HospitalAddress {
+  line1: string;
+  line2: string;
   city: string;
   state: string;
   country: string;
-  phone: string;
-  email: string;
-  website: string;
-  type: string;
-  beds: number;
-  departments: string[];
+  pincode: string;
 }
 
-const STORAGE_KEY = "jeevix.hospital.profile";
+export interface HospitalSubscriptionLimits {
+  maxStaff: number | null;
+  maxDoctors: number | null;
+  maxPatients: number | null;
+  maxStorage: number | null;
+}
 
-export const DEFAULT_HOSPITAL: HospitalProfile = {
-  name: "Aster Medcity",
-  description:
-    "Delivering quality healthcare through intelligent digital operations across cardiac, neuro, and transplant care.",
-  welcomeMessage: "Welcome to your hospital workspace",
-  logoUrl: null,
-  coverUrl: hospitalHero,
-  address: "Kuttisahib Road, Cheranalloor",
-  city: "Kochi",
-  state: "Kerala",
-  country: "India",
-  phone: "+91 484 669 9999",
-  email: "info@astermedcity.com",
-  website: "astermedcity.com",
-  type: "Multispeciality (Quaternary)",
-  beds: 670,
-  departments: ["Cardiology", "Neurology", "Oncology", "Orthopedics", "Pediatrics", "Emergency"],
+export interface HospitalSubscription {
+  plan: "BASIC" | "STANDARD" | "PROFESSIONAL" | "ENTERPRISE" | null;
+  status: "ACTIVE" | "INACTIVE" | "EXPIRED" | "SUSPENDED" | null;
+  startDate: string | null;
+  endDate: string | null;
+  limits: HospitalSubscriptionLimits;
+}
+
+export interface HospitalProfile {
+  _id: string;
+  hospitalId: string;
+  hospitalName: string;
+  hospitalCode: string;
+  hospitalType: "PRIVATE" | "GOVERNMENT" | "TRUST" | "CORPORATE";
+  registrationNumber: string;
+  establishedDate: string | null;
+
+  email: string;
+  phone: string;
+  telephone: string;
+  website: string;
+
+  address: HospitalAddress;
+
+  logo: string | null;
+
+  subscription: HospitalSubscription;
+
+  status: "ACTIVE" | "INACTIVE" | "SUSPENDED";
+
+  createdBy: string;
+  updatedBy: string | null;
+
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+interface HospitalProfileResponse {
+  success: boolean;
+  statusCode: number;
+  message: string;
+  data: HospitalProfile;
+  errors: string[];
+}
+
+interface UpdateHospitalProfileRequest {
+  hospitalName?: string;
+  registrationNumber?: string;
+  establishedDate?: string | null;
+  email?: string;
+  phone?: string;
+  telephone?: string;
+  website?: string;
+  address?: HospitalAddress;
+  logo?: string | null;
+}
+
+/**
+ * Get logged-in hospital profile
+ */
+export const getHospitalProfile = async (): Promise<HospitalProfile> => {
+  const response = await api.get<HospitalProfileResponse>("/hospitals/profile");
+
+  return response.data.data;
 };
 
-export function loadHospitalProfile(): HospitalProfile {
-  if (typeof window === "undefined") return DEFAULT_HOSPITAL;
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_HOSPITAL;
-    return { ...DEFAULT_HOSPITAL, ...JSON.parse(raw) };
-  } catch {
-    return DEFAULT_HOSPITAL;
-  }
-}
+/**
+ * Update hospital profile
+ *
+ * Hospital Admin can update profile information only.
+ * Subscription is intentionally NOT included here.
+ */
+export const updateHospitalProfile = async (
+  data: UpdateHospitalProfileRequest,
+): Promise<HospitalProfile> => {
+  const response = await api.put<HospitalProfileResponse>("/hospitals/profile", data);
 
-export function saveHospitalProfile(profile: HospitalProfile) {
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
-  window.dispatchEvent(new CustomEvent("jeevix:hospital-updated"));
-}
+  return response.data.data;
+};
 
+/**
+ * React hook for hospital profile
+ */
 export function useHospitalProfile() {
-  const [profile, setProfile] = useState<HospitalProfile>(DEFAULT_HOSPITAL);
+  const [profile, setProfile] = useState<HospitalProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchProfile = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const data = await getHospitalProfile();
+
+      setProfile(data);
+    } catch (err) {
+      console.error("Failed to load hospital profile:", err);
+      setError("Unable to load hospital profile.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    setProfile(loadHospitalProfile());
-    const handler = () => setProfile(loadHospitalProfile());
-    window.addEventListener("jeevix:hospital-updated", handler);
-    window.addEventListener("storage", handler);
-    return () => {
-      window.removeEventListener("jeevix:hospital-updated", handler);
-      window.removeEventListener("storage", handler);
-    };
+    fetchProfile();
   }, []);
-  return [profile, setProfile] as const;
+
+  return {
+    profile,
+    setProfile,
+    loading,
+    error,
+    refresh: fetchProfile,
+  };
 }

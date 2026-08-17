@@ -35,7 +35,9 @@ function SplashScreen() {
 
       <div
         className={`relative flex flex-col items-center transition-all duration-500 ease-out ${
-          leaving ? "translate-y-1 opacity-0" : "animate-in fade-in slide-in-from-bottom-2 opacity-100 duration-700"
+          leaving
+            ? "translate-y-1 opacity-0"
+            : "animate-in fade-in slide-in-from-bottom-2 opacity-100 duration-700"
         }`}
       >
         <JeevixLogo size="xl" />
