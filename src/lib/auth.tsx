@@ -20,6 +20,7 @@ export type AuthUser = {
   name: string;
   email: string;
   role: Role;
+  hospitalId?: string;
   title?: string;
 };
 
@@ -55,12 +56,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { staff, token } = await apiLogin({ loginId, password });
 
     const nextUser: AuthUser = {
-      id: staff._id,
-      name: staff.displayName || `${staff.firstName ?? ""} ${staff.lastName ?? ""}`.trim(),
-      email: staff.email,
-      role: (staff.role ?? "USER") as Role,
-      title: staff.role ?? "USER",
-    };
+  id: staff._id,
+  name:
+    staff.displayName ||
+    `${staff.firstName ?? ""} ${staff.lastName ?? ""}`.trim(),
+  email: staff.email,
+  role: (staff.role ?? "USER") as Role,
+  hospitalId: staff.hospitalId,
+  title: staff.role ?? "USER",
+};
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(nextUser));
     localStorage.setItem(TOKEN_KEY, token);
