@@ -39,6 +39,7 @@ export type Subscription = {
   status: "ACTIVE" | "INACTIVE" | "EXPIRED" | "SUSPENDED" | null;
   startDate: string | null;
   endDate: string | null;
+    updatedAt: string | null;
   modules: SubscriptionModule;
   limits: SubscriptionLimits;
 };

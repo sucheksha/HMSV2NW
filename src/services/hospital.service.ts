@@ -1,4 +1,4 @@
-import api from "./api";
+import api from "@/services/api";
 
 // ==========================================
 // Hospital Address
@@ -8,6 +8,7 @@ export interface HospitalAddress {
   line1: string;
   line2: string;
   city: string;
+  district?: string;
   state: string;
   country: string;
   pincode: string;
@@ -92,9 +93,13 @@ export interface HospitalProfile {
   hospitalType: "PRIVATE" | "GOVERNMENT" | "TRUST" | "CORPORATE";
 
   registrationNumber: string;
+  registrationCertificate?: string | null;
+  registrationDate?: string | null;
+  registrationExpiryDate?: string | null;
+  verificationStatus?: "PENDING" | "VERIFIED" | "REJECTED";
 
   establishedDate: string | null;
-
+  description?: string;
   email: string;
 
   phone: string;
@@ -102,11 +107,12 @@ export interface HospitalProfile {
   telephone: string;
 
   website: string;
-
+  googleMaps?: string;
   address: HospitalAddress;
 
   logo: string | null;
-
+  nabhAccredited: boolean;
+  nabhNumber?: string;
   subscription: HospitalSubscription;
 
   status: "ACTIVE" | "INACTIVE" | "SUSPENDED";
@@ -185,7 +191,7 @@ export interface UpdateHospitalProfileRequest {
 // ==========================================
 
 export const getHospitalProfile = async (): Promise<HospitalProfile> => {
-  const response = await api.get<HospitalProfileResponse>("/hospitals/profile");
+  const response = await api.get("/hospitals/profile");
 
   return response.data.data;
 };
@@ -194,14 +200,39 @@ export const getHospitalProfile = async (): Promise<HospitalProfile> => {
 // Update Hospital Profile
 // Hospital Admin
 // ==========================================
-//
+export interface UpdateHospitalProfilePayload {
+  hospitalName?: string;
+  hospitalType?: "PRIVATE" | "GOVERNMENT" | "TRUST" | "CORPORATE";
+
+  establishedDate?: string | null;
+  description?: string;
+
+  email?: string;
+  phone?: string;
+  telephone?: string;
+  website?: string;
+  googleMaps?: string;
+
+  address?: Partial<HospitalAddress>;
+
+  registrationNumber?: string;
+  registrationCertificate?: string | null;
+  registrationDate?: string | null;
+  registrationExpiryDate?: string | null;
+
+  logo?: string | null;
+
+  nabhAccredited?: boolean;
+  nabhNumber?: string;
+}
+
 // PUT /api/hospitals/profile
 // ==========================================
 
 export const updateHospitalProfile = async (
-  data: UpdateHospitalProfileRequest,
+  data: UpdateHospitalProfilePayload,
 ): Promise<HospitalProfile> => {
-  const response = await api.put<HospitalProfileResponse>("/hospitals/profile", data);
+  const response = await api.put("/hospitals/profile", data);
 
   return response.data.data;
 };

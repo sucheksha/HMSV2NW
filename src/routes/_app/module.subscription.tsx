@@ -13,8 +13,8 @@ import { useAuth } from "@/lib/auth";
 import {
   getSubscription,
   updateSubscription,
-  type SubscriptionPlan,
   type SubscriptionResponse,
+  type SubscriptionUpdatePayload,
 } from "@/services/subscription.service";
 
 export const Route = createFileRoute("/_app/module/subscription")({
@@ -98,17 +98,48 @@ const ADDONS = [
   "Data Migration",
 ];
 
-const PLAN_TO_BACKEND: Record<Plan["id"], SubscriptionPlan> = {
-  starter: "STARTER",
-  professional: "PROFESSIONAL",
-  enterprise: "ENTERPRISE",
-};
+type ModuleKey =
+  | "patients"
+  | "appointments"
+  | "opd"
+  | "ipd"
+  | "laboratory"
+  | "pharmacy"
+  | "inventory"
+  | "diagnosis"
+  | "billing"
+  | "expenses"
+  | "reports"
+  | "analytics"
+  | "staff"
+  | "doctors"
+  | "departments"
+  | "wards"
+  | "rooms"
+  | "beds"
+  | "masterData";
 
-const BACKEND_TO_PLAN: Record<SubscriptionPlan, Plan["id"]> = {
-  STARTER: "starter",
-  PROFESSIONAL: "professional",
-  ENTERPRISE: "enterprise",
-};
+const ALL_MODULES: ModuleKey[] = [
+  "patients",
+  "appointments",
+  "opd",
+  "ipd",
+  "laboratory",
+  "pharmacy",
+  "inventory",
+  "diagnosis",
+  "billing",
+  "expenses",
+  "reports",
+  "analytics",
+  "staff",
+  "doctors",
+  "departments",
+  "wards",
+  "rooms",
+  "beds",
+  "masterData",
+];
 
 function SubscriptionPage() {
   const { user } = useAuth();
@@ -118,21 +149,32 @@ function SubscriptionPage() {
 
   const [billing, setBilling] = useState<"monthly" | "annual">("annual");
 
+  /*
+   * This is the plan currently stored in MongoDB.
+   * null means no plan has been assigned.
+   */
+  const [activePlan, setActivePlan] = useState<Plan["id"] | null>(null);
+
+  /*
+   * This is the plan the Super Admin has selected
+   * but has NOT confirmed yet.
+   */
+  const [selectedPlan, setSelectedPlan] = useState<Plan["id"] | null>(null);
+
   const [selectedAddons, setSelectedAddons] = useState<string[]>([]);
+
   const [notes, setNotes] = useState("");
 
   const [subscription, setSubscription] = useState<SubscriptionResponse | null>(null);
 
   const [loading, setLoading] = useState(true);
-  const [updatingPlan, setUpdatingPlan] = useState<Plan["id"] | null>(null);
+
+  const [saving, setSaving] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
 
   /*
-   * Load subscription from backend.
-   *
-   * The hospitalId comes from the logged-in user.
-   * There is no hardcoded hospital ID.
+   * Load subscription from MongoDB.
    */
   useEffect(() => {
     const loadSubscription = async () => {
@@ -149,8 +191,29 @@ function SubscriptionPage() {
         const data = await getSubscription(user.hospitalId);
 
         setSubscription(data);
-      } catch (error) {
-        console.error("Failed to load subscription:", error);
+
+        /*
+         * Backend is the source of truth.
+         * Do NOT default to professional.
+         */
+        const backendPlan = data.subscription?.plan?.toLowerCase();
+
+        if (
+          backendPlan === "starter" ||
+          backendPlan === "professional" ||
+          backendPlan === "enterprise"
+        ) {
+          setActivePlan(backendPlan);
+        } else {
+          setActivePlan(null);
+        }
+
+        /*
+         * Initially nothing is pending.
+         */
+        setSelectedPlan(null);
+      } catch (err) {
+        console.error("Failed to load subscription:", err);
         setError("Unable to load subscription details.");
       } finally {
         setLoading(false);
@@ -161,111 +224,194 @@ function SubscriptionPage() {
   }, [user?.hospitalId]);
 
   /*
-   * The backend stores:
-   *
-   * STARTER
-   * PROFESSIONAL
-   * ENTERPRISE
-   *
-   * The UI uses:
-   *
-   * starter
-   * professional
-   * enterprise
+   * Modules currently stored in MongoDB.
    */
-  const activePlan: Plan["id"] | null = subscription?.subscription?.plan
-    ? BACKEND_TO_PLAN[subscription.subscription.plan]
-    : null;
+  const enabledModules = subscription?.subscription?.modules ?? {};
 
-  const currentPlan = activePlan ? PLANS.find((plan) => plan.id === activePlan) : null;
+  /*
+   * Select a plan.
+   *
+   * IMPORTANT:
+   * This does NOT update MongoDB.
+   * It only marks the plan as pending until
+   * the Super Admin confirms it.
+   */
+  function selectPlan(planId: Plan["id"]) {
+    if (!isSuperAdmin) return;
 
-  function toggleAddon(addon: string) {
-    setSelectedAddons((current) =>
-      current.includes(addon) ? current.filter((item) => item !== addon) : [...current, addon],
-    );
+    setSelectedPlan(planId);
   }
 
   /*
-   * Super Admin changes the actual subscription.
+   * Convert selected plan into backend module configuration.
    *
-   * This is NOT a request to the team.
+   * These values are what will be stored in:
    *
-   * It directly updates MongoDB through:
-   *
-   * PUT /hospitals/:hospitalId/subscription
+   * hospital.subscription.modules
    */
-  async function changePlan(planId: Plan["id"]) {
-    if (!isSuperAdmin) {
-      return;
+  function getModulesForPlan(planId: Plan["id"]): Record<ModuleKey, boolean> {
+    const modules: Record<ModuleKey, boolean> = Object.fromEntries(
+      ALL_MODULES.map((module) => [module, false]),
+    ) as Record<ModuleKey, boolean>;
+
+    if (planId === "starter") {
+      modules.patients = true;
+      modules.appointments = true;
+      modules.billing = true;
+      modules.reports = true;
     }
+
+    if (planId === "professional") {
+      modules.patients = true;
+      modules.appointments = true;
+      modules.opd = true;
+      modules.ipd = true;
+      modules.laboratory = true;
+      modules.pharmacy = true;
+      modules.inventory = true;
+      modules.billing = true;
+      modules.reports = true;
+      modules.staff = true;
+      modules.doctors = true;
+      modules.departments = true;
+      modules.wards = true;
+      modules.rooms = true;
+      modules.beds = true;
+    }
+
+    if (planId === "enterprise") {
+      ALL_MODULES.forEach((module) => {
+        modules[module] = true;
+      });
+    }
+
+    return modules;
+  }
+
+  /*
+   * CONFIRM PLAN
+   *
+   * This is the important function.
+   *
+   * Flow:
+   *
+   * Super Admin selects plan
+   *       ↓
+   * clicks Confirm
+   *       ↓
+   * PUT /hospitals/:hospitalId/subscription
+   *       ↓
+   * backend updates MongoDB
+   *       ↓
+   * frontend updates from backend response
+   */
+  async function confirmPlan() {
+    if (!isSuperAdmin) return;
 
     if (!user?.hospitalId) {
       toast.error("Hospital information is not available.");
       return;
     }
 
-    const currentSubscription = subscription?.subscription;
-
-    if (!currentSubscription) {
-      toast.error("No subscription information is available.");
+    if (!selectedPlan) {
+      toast.error("Please select a subscription plan.");
       return;
     }
 
     try {
-      setUpdatingPlan(planId);
+      setSaving(true);
 
-      const updatedSubscription = await updateSubscription(user.hospitalId, {
+      const modules = getModulesForPlan(selectedPlan);
+
+      const payload: SubscriptionUpdatePayload = {
+        plan: selectedPlan.toUpperCase() as "STARTER" | "PROFESSIONAL" | "ENTERPRISE",
+
+        status: "ACTIVE",
+
         /*
-         * Only the plan is changing.
-         * Existing subscription information is preserved
-         * because the backend replaces the whole subscription object.
+         * If an existing subscription has dates,
+         * preserve them.
+         *
+         * Otherwise start today.
          */
-        plan: PLAN_TO_BACKEND[planId],
+        startDate: subscription?.subscription?.startDate ?? new Date().toISOString(),
 
-        status: currentSubscription.status ?? "ACTIVE",
+        endDate: subscription?.subscription?.endDate ?? null,
 
-        startDate: currentSubscription.startDate,
+        modules,
 
-        endDate: currentSubscription.endDate,
+        limits: subscription?.subscription?.limits ?? {
+          maxStaff: null,
+          maxDoctors: null,
+          maxPatients: null,
+          maxStorage: null,
+        },
+      };
 
-        modules: currentSubscription.modules,
-
-        limits: currentSubscription.limits,
-      });
+      const updated = await updateSubscription(user.hospitalId, payload);
 
       /*
-       * Use the backend response as the new source of truth.
+       * Backend response becomes the new source of truth.
        */
-      setSubscription(updatedSubscription);
+      setSubscription(updated);
 
-      const selectedPlan = PLANS.find((plan) => plan.id === planId);
+      const updatedPlan = updated.subscription?.plan?.toLowerCase();
 
-      toast.success(`${selectedPlan?.name ?? "Subscription"} plan selected successfully.`);
-    } catch (error) {
-      console.error("Failed to update subscription:", error);
+      if (
+        updatedPlan === "starter" ||
+        updatedPlan === "professional" ||
+        updatedPlan === "enterprise"
+      ) {
+        setActivePlan(updatedPlan);
+      }
 
-      toast.error("Unable to update subscription plan.");
+      setSelectedPlan(null);
+
+      toast.success(
+        `${PLANS.find((p) => p.id === activePlan)?.name ?? "Subscription"} updated successfully.`,
+      );
+    } catch (err) {
+      console.error("Failed to update subscription:", err);
+
+      toast.error("Failed to update subscription. Please check the server response.");
     } finally {
-      setUpdatingPlan(null);
+      setSaving(false);
     }
+  }
+
+  function toggleAddon(addon: string) {
+    if (!isSuperAdmin) return;
+
+    setSelectedAddons((current) =>
+      current.includes(addon) ? current.filter((item) => item !== addon) : [...current, addon],
+    );
   }
 
   function submitRequest() {
     if (selectedAddons.length === 0) {
-      return toast.error("Select at least one service to request.");
+      toast.error("Select at least one service to request.");
+      return;
     }
 
-    toast.success(
-      `Request submitted · ${selectedAddons.length} service(s). Our team will contact you.`,
-    );
+    toast.success(`Request submitted · ${selectedAddons.length} service(s).`);
 
     setSelectedAddons([]);
     setNotes("");
   }
 
   /*
-   * Loading state
+   * Displayed current plan.
+   *
+   * This comes from MongoDB, not a hardcoded
+   * "professional" value.
    */
+  const currentPlan = PLANS.find((plan) => plan.id === activePlan) ?? null;
+
+  /*
+   * Plan currently waiting for confirmation.
+   */
+  const pendingPlan = PLANS.find((plan) => plan.id === selectedPlan) ?? null;
+
   if (loading) {
     return (
       <>
@@ -273,8 +419,8 @@ function SubscriptionPage() {
 
         <main className="flex-1 px-6 py-6">
           <div className="mx-auto max-w-6xl">
-            <div className="rounded-2xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
-              Loading subscription details...
+            <div className="rounded-2xl border border-border bg-card p-8 text-center text-muted-foreground">
+              Loading subscription...
             </div>
           </div>
         </main>
@@ -282,9 +428,6 @@ function SubscriptionPage() {
     );
   }
 
-  /*
-   * Error state
-   */
   if (error) {
     return (
       <>
@@ -292,7 +435,7 @@ function SubscriptionPage() {
 
         <main className="flex-1 px-6 py-6">
           <div className="mx-auto max-w-6xl">
-            <div className="rounded-2xl border border-destructive/30 bg-card p-8 text-center text-sm text-destructive">
+            <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-8 text-center text-destructive">
               {error}
             </div>
           </div>
@@ -307,9 +450,9 @@ function SubscriptionPage() {
 
       <main className="flex-1 px-6 py-6">
         <div className="mx-auto max-w-6xl space-y-6">
-          {/* ==========================================
-              Current Plan
-          ========================================== */}
+          {/* =====================================================
+              CURRENT PLAN
+             ===================================================== */}
 
           <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-card)]">
             <div className="flex items-center gap-4">
@@ -331,8 +474,9 @@ function SubscriptionPage() {
                 </div>
 
                 <div className="text-[13px] text-muted-foreground">
-                  {currentPlan?.tagline ?? "No subscription plan is currently assigned"}
-                  {currentPlan && <> · Billed {billing}</>}
+                  {currentPlan
+                    ? `${currentPlan.tagline} · Billed ${billing}`
+                    : "No subscription plan is currently assigned"}
                 </div>
               </div>
             </div>
@@ -354,9 +498,43 @@ function SubscriptionPage() {
             )}
           </section>
 
-          {/* ==========================================
-              Subscription Plans
-          ========================================== */}
+          {/* =====================================================
+              PENDING CHANGE
+             ===================================================== */}
+
+          {isSuperAdmin && pendingPlan && (
+            <section className="rounded-2xl border border-primary/30 bg-primary/5 p-5">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">
+                    Pending subscription change
+                  </div>
+
+                  <div className="mt-1 text-base font-semibold text-foreground">
+                    {pendingPlan.name}
+                  </div>
+
+                  <div className="text-sm text-muted-foreground">
+                    Click Confirm to save this plan to the hospital subscription.
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setSelectedPlan(null)} disabled={saving}>
+                    Cancel
+                  </Button>
+
+                  <Button onClick={confirmPlan} disabled={saving}>
+                    {saving ? "Saving..." : `Confirm ${pendingPlan.name}`}
+                  </Button>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* =====================================================
+              PLANS
+             ===================================================== */}
 
           <section>
             <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
@@ -365,27 +543,26 @@ function SubscriptionPage() {
 
                 <p className="text-[13px] text-muted-foreground">
                   {isSuperAdmin
-                    ? "Choose the plan that fits your hospital."
+                    ? "Select a plan and confirm the change for your hospital."
                     : "View the subscription plan assigned to your hospital."}
                 </p>
               </div>
 
-              {/* Billing selector */}
               <div className="inline-flex rounded-full border border-border bg-secondary/50 p-1">
-                {(["monthly", "annual"] as const).map((billingOption) => (
+                {(["monthly", "annual"] as const).map((period) => (
                   <button
-                    key={billingOption}
-                    onClick={() => setBilling(billingOption)}
+                    key={period}
+                    onClick={() => setBilling(period)}
                     className={cn(
                       "rounded-full px-4 py-1.5 text-[12.5px] font-medium capitalize transition",
-                      billing === billingOption
+                      billing === period
                         ? "bg-card text-foreground shadow-sm"
                         : "text-muted-foreground hover:text-foreground",
                     )}
                   >
-                    {billingOption}
+                    {period}
 
-                    {billingOption === "annual" && (
+                    {period === "annual" && (
                       <span className="ml-1.5 rounded bg-success/15 px-1.5 py-0.5 text-[10px] font-semibold text-success">
                         -16%
                       </span>
@@ -399,33 +576,20 @@ function SubscriptionPage() {
               {PLANS.map((plan) => {
                 const active = plan.id === activePlan;
 
+                const pending = plan.id === selectedPlan;
+
                 const price = billing === "monthly" ? plan.monthly : plan.annual;
 
                 const Icon = plan.icon;
-
-                const isUpdating = updatingPlan === plan.id;
-
-                /*
-                 * Hospital Admin:
-                 * - Current plan remains visible normally.
-                 * - Other plans are visually frozen/grey.
-                 *
-                 * Super Admin:
-                 * - All plans remain selectable.
-                 */
-                const frozenForAdmin = isHospitalAdmin && !active;
 
                 return (
                   <div
                     key={plan.id}
                     className={cn(
                       "relative flex flex-col rounded-2xl border bg-card p-6 shadow-[var(--shadow-card)] transition",
-
                       plan.highlight ? "border-primary/40 ring-1 ring-primary/20" : "border-border",
-
                       active && "ring-2 ring-primary",
-
-                      frozenForAdmin && "opacity-60",
+                      pending && "border-primary ring-2 ring-primary/40",
                     )}
                   >
                     {plan.highlight && (
@@ -465,7 +629,6 @@ function SubscriptionPage() {
                           className="flex items-start gap-2 text-[13px] text-foreground"
                         >
                           <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-
                           <span>{feature}</span>
                         </li>
                       ))}
@@ -473,17 +636,17 @@ function SubscriptionPage() {
 
                     <Button
                       variant={active ? "secondary" : plan.highlight ? "default" : "outline"}
-                      disabled={active || !isSuperAdmin || updatingPlan !== null}
-                      onClick={() => changePlan(plan.id)}
+                      disabled={!isSuperAdmin || saving || active}
+                      onClick={() => selectPlan(plan.id)}
                       className="w-full"
                     >
                       {active
                         ? "Current plan"
-                        : isHospitalAdmin
-                          ? "View plan"
-                          : isUpdating
-                            ? "Updating..."
-                            : `Select ${plan.name}`}
+                        : isSuperAdmin
+                          ? pending
+                            ? "Selected"
+                            : `Select ${plan.name}`
+                          : "View plan"}
                     </Button>
                   </div>
                 );
@@ -491,13 +654,51 @@ function SubscriptionPage() {
             </div>
           </section>
 
-          {/* ==========================================
-              Additional Services
-              Super Admin only
-          ========================================== */}
+          {/* =====================================================
+              ENABLED MODULES
+             ===================================================== */}
+
+          <section className="rounded-2xl border border-border bg-card p-6">
+            <div className="mb-4">
+              <h2 className="text-[16px] font-semibold text-foreground">Enabled Modules</h2>
+
+              <p className="text-[13px] text-muted-foreground">
+                Modules currently enabled for this hospital.
+              </p>
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {ALL_MODULES.map((module) => {
+                const enabled = Boolean(enabledModules[module as keyof typeof enabledModules]);
+
+                return (
+                  <div
+                    key={module}
+                    className={cn(
+                      "flex items-center gap-2 rounded-lg border px-3 py-2 text-sm",
+                      enabled ? "border-primary/30 bg-primary/5" : "border-border bg-background",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "h-2 w-2 rounded-full",
+                        enabled ? "bg-primary" : "bg-muted-foreground/30",
+                      )}
+                    />
+
+                    <span className="capitalize">{module.replace(/([A-Z])/g, " $1").trim()}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* =====================================================
+              ADDITIONAL SERVICES
+             ===================================================== */}
 
           {isSuperAdmin && (
-            <section className="rounded-2xl border border-border bg-card p-6 shadow-[var(--shadow-card)]">
+            <section className="rounded-2xl border border-border bg-card p-6">
               <div className="mb-4 flex items-start gap-3">
                 <div className="grid h-10 w-10 place-items-center rounded-xl bg-accent/10 text-accent">
                   <Sparkles className="h-5 w-5" />
@@ -523,7 +724,6 @@ function SubscriptionPage() {
                       key={addon}
                       className={cn(
                         "flex cursor-pointer items-center gap-2.5 rounded-xl border px-3 py-2.5 text-[13px] transition",
-
                         checked
                           ? "border-primary/50 bg-primary/5"
                           : "border-border hover:border-primary/30 hover:bg-secondary/50",
