@@ -66,16 +66,11 @@ export interface HospitalSubscriptionLimits {
 
 export interface HospitalSubscription {
   status: "ACTIVE" | "INACTIVE" | "EXPIRED" | "SUSPENDED" | null;
-
   startDate: string | null;
-
   endDate: string | null;
-
   modules: HospitalModules;
-
   limits: HospitalSubscriptionLimits;
 }
-
 // ==========================================
 // Hospital Profile
 // Matches hospital.model.js exactly
@@ -83,15 +78,10 @@ export interface HospitalSubscription {
 
 export interface HospitalProfile {
   _id: string;
-
   hospitalId: string;
-
   hospitalName: string;
-
   hospitalCode: string;
-
   hospitalType: "PRIVATE" | "GOVERNMENT" | "TRUST" | "CORPORATE";
-
   registrationNumber: string;
   registrationCertificate?: string | null;
   registrationDate?: string | null;

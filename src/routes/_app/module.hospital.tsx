@@ -27,7 +27,7 @@ function HospitalProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const isHospitalAdmin = user?.role === "HOSPITAL_ADMIN";
+  const canEditHospitalProfile = user?.role === "SUPER_ADMIN" || user?.role === "HOSPITAL_ADMIN";
 
   // ==========================================
   // Load Hospital Profile
@@ -117,7 +117,7 @@ function HospitalProfilePage() {
   // ==========================================
 
   const handleSave = async () => {
-    if (!isHospitalAdmin) {
+    if (!canEditHospitalProfile) {
       toast.error("You do not have permission to edit hospital profile.");
       return;
     }
@@ -233,7 +233,7 @@ function HospitalProfilePage() {
 
                 <Input
                   value={form.hospitalName ?? ""}
-                  disabled={!isHospitalAdmin}
+                  disabled={!canEditHospitalProfile}
                   onChange={(e) => updateField("hospitalName", e.target.value)}
                 />
               </div>
@@ -243,7 +243,7 @@ function HospitalProfilePage() {
 
                 <select
                   value={form.hospitalType ?? "PRIVATE"}
-                  disabled={!isHospitalAdmin}
+                  disabled={!canEditHospitalProfile}
                   onChange={(e) =>
                     updateField("hospitalType", e.target.value as HospitalProfile["hospitalType"])
                   }
@@ -262,7 +262,7 @@ function HospitalProfilePage() {
                 <Input
                   type="date"
                   value={form.establishedDate ?? ""}
-                  disabled={!isHospitalAdmin}
+                  disabled={!canEditHospitalProfile}
                   onChange={(e) => updateField("establishedDate", e.target.value || null)}
                 />
               </div>
@@ -274,7 +274,7 @@ function HospitalProfilePage() {
                   type="text"
                   placeholder="Logo URL"
                   value={form.logo ?? ""}
-                  disabled={!isHospitalAdmin}
+                  disabled={!canEditHospitalProfile}
                   onChange={(e) => updateField("logo", e.target.value || null)}
                 />
               </div>
@@ -285,7 +285,7 @@ function HospitalProfilePage() {
                 <Textarea
                   rows={4}
                   value={form.description ?? ""}
-                  disabled={!isHospitalAdmin}
+                  disabled={!canEditHospitalProfile}
                   onChange={(e) => updateField("description", e.target.value)}
                   placeholder="Enter a short description about the hospital..."
                 />
@@ -318,7 +318,7 @@ function HospitalProfilePage() {
 
                 <Input
                   value={form.address?.line1 ?? ""}
-                  disabled={!isHospitalAdmin}
+                  disabled={!canEditHospitalProfile}
                   onChange={(e) => updateAddress("line1", e.target.value)}
                   placeholder="Address line 1"
                 />
@@ -327,7 +327,7 @@ function HospitalProfilePage() {
               <div className="md:col-span-2">
                 <Input
                   value={form.address?.line2 ?? ""}
-                  disabled={!isHospitalAdmin}
+                  disabled={!canEditHospitalProfile}
                   onChange={(e) => updateAddress("line2", e.target.value)}
                   placeholder="Address line 2"
                 />
@@ -338,7 +338,7 @@ function HospitalProfilePage() {
 
                 <Input
                   value={form.address?.city ?? ""}
-                  disabled={!isHospitalAdmin}
+                  disabled={!canEditHospitalProfile}
                   onChange={(e) => updateAddress("city", e.target.value)}
                 />
               </div>
@@ -348,7 +348,7 @@ function HospitalProfilePage() {
 
                 <Input
                   value={form.address?.district ?? ""}
-                  disabled={!isHospitalAdmin}
+                  disabled={!canEditHospitalProfile}
                   onChange={(e) => updateAddress("district", e.target.value)}
                 />
               </div>
@@ -358,7 +358,7 @@ function HospitalProfilePage() {
 
                 <Input
                   value={form.address?.state ?? ""}
-                  disabled={!isHospitalAdmin}
+                  disabled={!canEditHospitalProfile}
                   onChange={(e) => updateAddress("state", e.target.value)}
                 />
               </div>
@@ -368,7 +368,7 @@ function HospitalProfilePage() {
 
                 <Input
                   value={form.address?.country ?? ""}
-                  disabled={!isHospitalAdmin}
+                  disabled={!canEditHospitalProfile}
                   onChange={(e) => updateAddress("country", e.target.value)}
                 />
               </div>
@@ -378,7 +378,7 @@ function HospitalProfilePage() {
 
                 <Input
                   value={form.address?.pincode ?? ""}
-                  disabled={!isHospitalAdmin}
+                  disabled={!canEditHospitalProfile}
                   onChange={(e) => updateAddress("pincode", e.target.value)}
                 />
               </div>
@@ -388,7 +388,7 @@ function HospitalProfilePage() {
 
                 <Input
                   value={form.phone ?? ""}
-                  disabled={!isHospitalAdmin}
+                  disabled={!canEditHospitalProfile}
                   onChange={(e) => updateField("phone", e.target.value)}
                 />
               </div>
@@ -398,7 +398,7 @@ function HospitalProfilePage() {
 
                 <Input
                   value={form.telephone ?? ""}
-                  disabled={!isHospitalAdmin}
+                  disabled={!canEditHospitalProfile}
                   onChange={(e) => updateField("telephone", e.target.value)}
                 />
               </div>
@@ -409,7 +409,7 @@ function HospitalProfilePage() {
                 <Input
                   type="email"
                   value={form.email ?? ""}
-                  disabled={!isHospitalAdmin}
+                  disabled={!canEditHospitalProfile}
                   onChange={(e) => updateField("email", e.target.value)}
                 />
               </div>
@@ -419,7 +419,7 @@ function HospitalProfilePage() {
 
                 <Input
                   value={form.website ?? ""}
-                  disabled={!isHospitalAdmin}
+                  disabled={!canEditHospitalProfile}
                   onChange={(e) => updateField("website", e.target.value)}
                 />
               </div>
@@ -429,7 +429,7 @@ function HospitalProfilePage() {
 
                 <Input
                   value={form.googleMaps ?? ""}
-                  disabled={!isHospitalAdmin}
+                  disabled={!canEditHospitalProfile}
                   onChange={(e) => updateField("googleMaps", e.target.value)}
                   placeholder="Google Maps URL"
                 />
@@ -466,7 +466,7 @@ function HospitalProfilePage() {
 
                 <Input
                   value={form.registrationNumber ?? ""}
-                  disabled={!isHospitalAdmin}
+                  disabled={!canEditHospitalProfile}
                   onChange={(e) => updateField("registrationNumber", e.target.value)}
                 />
               </div>
@@ -479,11 +479,11 @@ function HospitalProfilePage() {
                     type="text"
                     placeholder="Certificate file reference"
                     value={form.registrationCertificate ?? ""}
-                    disabled={!isHospitalAdmin}
+                    disabled={!canEditHospitalProfile}
                     onChange={(e) => updateField("registrationCertificate", e.target.value || null)}
                   />
 
-                  <Button type="button" variant="outline" disabled={!isHospitalAdmin}>
+                  <Button type="button" variant="outline" disabled={!canEditHospitalProfile}>
                     <Upload className="h-4 w-4" />
                   </Button>
                 </div>
@@ -495,7 +495,7 @@ function HospitalProfilePage() {
                 <Input
                   type="date"
                   value={form.registrationDate ?? ""}
-                  disabled={!isHospitalAdmin}
+                  disabled={!canEditHospitalProfile}
                   onChange={(e) => updateField("registrationDate", e.target.value || null)}
                 />
               </div>
@@ -506,7 +506,7 @@ function HospitalProfilePage() {
                 <Input
                   type="date"
                   value={form.registrationExpiryDate ?? ""}
-                  disabled={!isHospitalAdmin}
+                  disabled={!canEditHospitalProfile}
                   onChange={(e) => updateField("registrationExpiryDate", e.target.value || null)}
                 />
               </div>
@@ -548,7 +548,7 @@ function HospitalProfilePage() {
 
                 <select
                   value={form.nabhAccredited ? "YES" : "NO"}
-                  disabled={!isHospitalAdmin}
+                  disabled={!canEditHospitalProfile}
                   onChange={(e) => updateField("nabhAccredited", e.target.value === "YES")}
                   className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                 >
@@ -563,7 +563,7 @@ function HospitalProfilePage() {
 
                   <Input
                     value={form.nabhNumber ?? ""}
-                    disabled={!isHospitalAdmin}
+                    disabled={!canEditHospitalProfile}
                     onChange={(e) => updateField("nabhNumber", e.target.value)}
                   />
                 </div>
@@ -575,20 +575,18 @@ function HospitalProfilePage() {
               ACTIONS
           ========================================== */}
 
-          {isHospitalAdmin && (
-            <div className="flex justify-end gap-3 pb-6">
-              <Button type="button" variant="outline" onClick={handleCancel} disabled={saving}>
-                <X className="mr-2 h-4 w-4" />
-                Cancel
-              </Button>
+          <div className="flex justify-end gap-3 pb-6">
+            <Button type="button" variant="outline" onClick={handleCancel} disabled={saving}>
+              <X className="mr-2 h-4 w-4" />
+              Cancel
+            </Button>
 
-              <Button type="button" onClick={handleSave} disabled={saving}>
-                <Save className="mr-2 h-4 w-4" />
+            <Button type="button" onClick={handleSave} disabled={saving}>
+              <Save className="mr-2 h-4 w-4" />
 
-                {saving ? "Saving..." : "Save Changes"}
-              </Button>
-            </div>
-          )}
+              {saving ? "Saving..." : "Save Changes"}
+            </Button>
+          </div>
         </div>
       </main>
     </>
