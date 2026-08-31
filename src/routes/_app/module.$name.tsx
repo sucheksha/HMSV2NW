@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Construction, ArrowLeft, Sparkles } from "lucide-react";
 import { Link } from "@tanstack/react-router";
-import { TopBar } from "@/components/hms/TopBar";
+import { TopBar } from "@/components/layout/TopBar";
 import { Button } from "@/components/ui/button";
-import { useAuth, roleHome } from "@/lib/auth";
-
+import { useAuth, roleHome } from "@/auth/auth";
+import DepartmentPage from "@/modules/master/department/DepartmentPage";
 export const Route = createFileRoute("/_app/module/$name")({
   component: ModuleStub,
 });
@@ -16,12 +16,13 @@ function humanize(slug: string) {
     .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
     .join(" ");
 }
-
 function ModuleStub() {
   const { name } = Route.useParams();
+  if (name === "departments") {
+    return <DepartmentPage />;
+  }
   const { user } = useAuth();
   const title = humanize(name);
-
   return (
     <>
       <TopBar title={title} subtitle="Module workspace" />
@@ -32,8 +33,8 @@ function ModuleStub() {
           </div>
           <h2 className="text-xl font-semibold text-foreground">{title}</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            This module's full workspace is being wired up. The navigation, permissions and layout are
-            ready — production APIs and workflows plug in next.
+            This module's full workspace is being wired up. The navigation, permissions and layout
+            are ready — production APIs and workflows plug in next.
           </p>
           <div className="mt-6 flex items-center justify-center gap-2">
             <Button variant="secondary" size="sm" asChild>

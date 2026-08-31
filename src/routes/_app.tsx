@@ -1,8 +1,8 @@
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 
-import { useAuth } from "@/lib/auth";
-import { AppSidebar } from "@/components/hms/AppSidebar";
+import { useAuth } from "@/auth/auth";
+import { AppSidebar } from "@/components/layout/AppSidebar";
 
 export const Route = createFileRoute("/_app")({
   ssr: false,
@@ -39,8 +39,8 @@ function AppLayout() {
 
       <div className="flex min-w-0 flex-1 flex-col overflow-x-clip">
         <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
-        <Outlet />
-      </div>
+          <Outlet />
+        </div>
       </div>
     </div>
   );

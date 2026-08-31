@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Building2, MapPin, FileCheck, Award, Upload, Save, X } from "lucide-react";
 import { toast } from "sonner";
 
-import { TopBar } from "@/components/hms/TopBar";
+import { TopBar } from "@/components/layout/TopBar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,7 +13,7 @@ import {
   type HospitalProfile,
   type UpdateHospitalProfilePayload,
 } from "@/services/hospital.service";
-import { useAuth } from "@/lib/auth";
+import { useAuth } from "@/auth/auth";
 
 export const Route = createFileRoute("/_app/module/hospital")({
   component: HospitalProfilePage,

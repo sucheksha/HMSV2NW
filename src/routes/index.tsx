@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { useAuth, roleHome } from "@/lib/auth";
-import { JeevixLogo } from "@/components/hms/Logo";
+import { useAuth, roleHome } from "@/auth/auth";
+import { JeevixLogo } from "@/components/layout/Logo";
 
 export const Route = createFileRoute("/")({
   component: SplashScreen,

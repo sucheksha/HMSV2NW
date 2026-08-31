@@ -1,7 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Users, Clock, CheckCircle2, Activity, ShieldCheck, ChevronRight, Search } from "lucide-react";
-import { TopBar } from "@/components/hms/TopBar";
-import { StatCard, Section, StatusPill } from "@/components/hms/DashboardBits";
+import {
+  Users,
+  Clock,
+  CheckCircle2,
+  Activity,
+  ShieldCheck,
+  ChevronRight,
+  Search,
+} from "lucide-react";
+import { TopBar } from "@/components/layout/TopBar";
+import { StatCard, Section, StatusPill } from "@/components/layout/DashboardBits";
 import { nurseQueue } from "@/lib/mock-data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,10 +25,34 @@ function NurseDashboard() {
       <TopBar title="Patient preparation" subtitle="Priya Menon · Staff Nurse · OPD Zone A" />
       <main className="flex-1 overflow-y-auto px-6 pb-10 pt-6">
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <StatCard label="Today's Patients" value={38} icon={<Users className="h-4 w-4" />} tone="neutral" delta="8 remaining" />
-          <StatCard label="Waiting" value={5} icon={<Clock className="h-4 w-4" />} tone="warning" delta="Oldest 12m" />
-          <StatCard label="Ready" value={7} icon={<CheckCircle2 className="h-4 w-4" />} tone="positive" delta="+3 last hour" />
-          <StatCard label="Vitals Pending" value={2} icon={<Activity className="h-4 w-4" />} tone="warning" delta="Token A-016, A-021" />
+          <StatCard
+            label="Today's Patients"
+            value={38}
+            icon={<Users className="h-4 w-4" />}
+            tone="neutral"
+            delta="8 remaining"
+          />
+          <StatCard
+            label="Waiting"
+            value={5}
+            icon={<Clock className="h-4 w-4" />}
+            tone="warning"
+            delta="Oldest 12m"
+          />
+          <StatCard
+            label="Ready"
+            value={7}
+            icon={<CheckCircle2 className="h-4 w-4" />}
+            tone="positive"
+            delta="+3 last hour"
+          />
+          <StatCard
+            label="Vitals Pending"
+            value={2}
+            icon={<Activity className="h-4 w-4" />}
+            tone="warning"
+            delta="Token A-016, A-021"
+          />
         </div>
 
         <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-5">
@@ -28,7 +60,11 @@ function NurseDashboard() {
             title="Today's queue"
             description="Prepare patients in order"
             className="xl:col-span-3"
-            action={<Button size="sm" variant="secondary" className="gap-1.5"><ShieldCheck className="h-4 w-4" /> Verify patient</Button>}
+            action={
+              <Button size="sm" variant="secondary" className="gap-1.5">
+                <ShieldCheck className="h-4 w-4" /> Verify patient
+              </Button>
+            }
           >
             <ul className="divide-y divide-border/70">
               {nurseQueue.map((p) => (
@@ -38,12 +74,22 @@ function NurseDashboard() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="truncate text-[15px] font-semibold text-foreground">{p.patient}</span>
+                      <span className="truncate text-[15px] font-semibold text-foreground">
+                        {p.patient}
+                      </span>
                       <span className="text-xs text-muted-foreground">· {p.age}y</span>
                     </div>
                     <div className="mt-0.5 truncate text-xs text-muted-foreground">{p.doctor}</div>
                   </div>
-                  <StatusPill tone={p.stage === "Vitals" || p.stage === "Vitals pending" ? "warning" : p.stage === "History" ? "info" : "muted"}>
+                  <StatusPill
+                    tone={
+                      p.stage === "Vitals" || p.stage === "Vitals pending"
+                        ? "warning"
+                        : p.stage === "History"
+                          ? "info"
+                          : "muted"
+                    }
+                  >
                     {p.stage}
                   </StatusPill>
                   <Button variant="ghost" size="sm">
@@ -54,9 +100,15 @@ function NurseDashboard() {
             </ul>
           </Section>
 
-          <Section title="Record vitals" description="Token A-016 · Kabir Singh, 34y" className="xl:col-span-2">
+          <Section
+            title="Record vitals"
+            description="Token A-016 · Kabir Singh, 34y"
+            className="xl:col-span-2"
+          >
             <div className="mb-4">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Find patient</Label>
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Find patient
+              </Label>
               <div className="relative mt-1.5">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input placeholder="UHID, token or mobile…" className="h-10 pl-9" />
@@ -77,7 +129,9 @@ function NurseDashboard() {
                 </div>
               ))}
               <div className="col-span-2 space-y-1">
-                <Label className="text-[11px] font-medium text-muted-foreground">Chief complaint</Label>
+                <Label className="text-[11px] font-medium text-muted-foreground">
+                  Chief complaint
+                </Label>
                 <Input placeholder="e.g. Fever with cough for 3 days" className="h-10" />
               </div>
             </div>
@@ -101,7 +155,9 @@ function NurseDashboard() {
                 { label: "Ready", value: 7, tone: "success" as const },
               ].map((s) => (
                 <div key={s.label} className="rounded-xl border border-border bg-background/60 p-4">
-                  <div className="mb-2"><StatusPill tone={s.tone}>{s.label}</StatusPill></div>
+                  <div className="mb-2">
+                    <StatusPill tone={s.tone}>{s.label}</StatusPill>
+                  </div>
                   <div className="text-2xl font-bold text-foreground">{s.value}</div>
                   <div className="text-[11px] text-muted-foreground">patients</div>
                 </div>

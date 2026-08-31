@@ -7,7 +7,6 @@ import {
   Stethoscope,
   Building2,
   ShieldCheck,
-  Database,
   Hospital,
   FlaskConical,
   Pill,
@@ -39,9 +38,9 @@ import {
 
 import { useState } from "react";
 
-import type { Role } from "@/lib/auth";
-import { useAuth } from "@/lib/auth";
-import { JeevixLogo } from "@/components/hms/Logo";
+import type { Role } from "@/auth/auth";
+import { useAuth } from "@/auth/auth";
+import { JeevixLogo } from "@/components/layout/Logo";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -136,36 +135,36 @@ const ADMIN_NAV: NavGroup[] = [
       },
     ],
   },
-  {
-    label: "Management",
-    items: [
-      {
-        label: "Staff",
-        to: "/module/staff",
-        icon: UserCog,
-      },
-      {
-        label: "Doctors",
-        to: "/module/doctors",
-        icon: Stethoscope,
-      },
-      {
-        label: "Departments",
-        to: "/module/departments",
-        icon: Hospital,
-      },
-      {
-        label: "Roles",
-        to: "/module/roles",
-        icon: ShieldCheck,
-      },
-      {
-        label: "Master Data",
-        to: "/module/master",
-        icon: Database,
-      },
-    ],
-  },
+ {
+  label: "Management",
+  items: [
+    {
+      label: "Staff",
+      to: "/module/staff",
+      icon: UserCog,
+    },
+    {
+      label: "Doctors",
+      to: "/module/doctors",
+      icon: Stethoscope,
+    },
+  ],
+},
+{
+  label: "Master",
+  items: [
+    {
+      label: "Department",
+      to: "/module/departments",
+      icon: Hospital,
+    },
+    {
+      label: "Roles",
+      to: "/module/roles",
+      icon: ShieldCheck,
+    },
+  ],
+},
   {
     label: "Finance & Insights",
     items: [

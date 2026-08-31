@@ -52,7 +52,7 @@ Shift from dark navy to a **light enterprise healthcare palette**:
 - `src/routes/_app/module.hospital-profile.tsx` (new)
 - `src/routes/_app/module.subscription.tsx` (new)
 - `src/routes/_app/admin.tsx`, `doctor.tsx`, `nurse.tsx` (spacing/typography polish)
-- `src/components/hms/AppSidebar.tsx`, `TopBar.tsx` (polish)
+- `src/components/layout/AppSidebar.tsx`, `TopBar.tsx` (polish)
 - `src/lib/hospital-profile.ts` (new — localStorage helper)
 
 ## Out of Scope

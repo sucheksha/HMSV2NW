@@ -2,7 +2,7 @@ import { Bell, Search, Command as CommandIcon, Sparkles, LogOut } from "lucide-r
 
 import { useNavigate } from "@tanstack/react-router";
 
-import { useAuth } from "@/lib/auth";
+import { useAuth } from "@/auth/auth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {

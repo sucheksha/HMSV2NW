@@ -23,8 +23,8 @@ import {
   Legend,
 } from "recharts";
 
-import { TopBar } from "@/components/hms/TopBar";
-import { StatCard, Section, StatusPill } from "@/components/hms/DashboardBits";
+import { TopBar } from "@/components/layout/TopBar";
+import { StatCard, Section, StatusPill } from "@/components/layout/DashboardBits";
 
 import {
   adminKpis,

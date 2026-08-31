@@ -3,12 +3,12 @@ import { useEffect, useState } from "react";
 import { Check, Sparkles, Send, CreditCard, Building2, Zap } from "lucide-react";
 import { toast } from "sonner";
 
-import { TopBar } from "@/components/hms/TopBar";
+import { TopBar } from "@/components/layout/TopBar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/lib/auth";
+import { useAuth } from "@/auth/auth";
 
 import {
   getSubscription,

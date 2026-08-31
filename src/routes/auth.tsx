@@ -13,8 +13,8 @@ import {
   BadgeCheck,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useAuth, roleHome, type Role } from "@/lib/auth";
-import { JeevixLogo } from "@/components/hms/Logo";
+import { useAuth, roleHome, type Role } from "@/auth/auth";
+import { JeevixLogo } from "@/components/layout/Logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
