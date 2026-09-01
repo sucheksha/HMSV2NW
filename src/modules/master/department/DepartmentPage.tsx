@@ -1,17 +1,35 @@
 import { useEffect, useState } from "react";
 import { Plus, Search, Building2 } from "lucide-react";
 
-import { getDepartments } from "./department.service";
+import { getDepartments, getDepartmentById } from "./department.service";
+
 import type { Department } from "./department.types";
+
 import DepartmentForm from "./DepartmentForm";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
 export default function DepartmentPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [showDepartmentForm, setShowDepartmentForm] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "INACTIVE">("ALL");
+  // Add/Edit form dialog
+  const [formOpen, setFormOpen] = useState(false);
+  const [editDepartment, setEditDepartment] = useState<Department | null>(null);
+
+  // Details dialog
+  const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null);
+
   const loadDepartments = async () => {
     try {
       setLoading(true);
@@ -30,13 +48,58 @@ export default function DepartmentPage() {
     loadDepartments();
   }, []);
 
-  const filteredDepartments = departments.filter((department) => {
-    const searchText = search.toLowerCase();
+  const handleViewDetails = async (departmentId: string) => {
+    try {
+      const department = await getDepartmentById(departmentId);
 
-    return (
+      setSelectedDepartment(department);
+    } catch (error) {
+      console.error("Failed to load department details:", error);
+    }
+  };
+
+  // ADD
+  const handleAddDepartment = () => {
+    setEditDepartment(null);
+    setFormOpen(true);
+  };
+
+  // EDIT
+  const handleEditDepartment = () => {
+    if (!selectedDepartment) return;
+
+    // Close details popup first
+    setSelectedDepartment(null);
+
+    // Open edit form
+    setEditDepartment(selectedDepartment);
+    setFormOpen(true);
+  };
+
+  // FORM SUCCESS
+  const handleFormSuccess = async () => {
+    setFormOpen(false);
+    setEditDepartment(null);
+
+    await loadDepartments();
+  };
+
+  // FORM CANCEL
+  const handleFormCancel = () => {
+    setFormOpen(false);
+    setEditDepartment(null);
+  };
+
+  const filteredDepartments = departments.filter((department) => {
+    const searchText = search.toLowerCase().trim();
+
+    const matchesSearch =
       department.departmentName.toLowerCase().includes(searchText) ||
-      department.departmentCode.toLowerCase().includes(searchText)
-    );
+      department.departmentCode.toLowerCase().includes(searchText);
+
+    const matchesStatus = statusFilter === "ALL" || department.status === statusFilter;
+
+    return matchesSearch && matchesStatus;
   });
 
   return (
@@ -48,11 +111,14 @@ export default function DepartmentPage() {
         <p className="text-sm text-muted-foreground">Manage hospital departments.</p>
       </div>
 
-      {/* TOP CONTROL BAR */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      {/* SEARCH + ADD */}
+      <div className="flex w-full flex-col gap-3 sm:flex-row sm:max-w-2xl">
         {/* SEARCH */}
         <div className="relative w-full sm:max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search
+            className="absolute left-3 top-1/2 h-4 w-4
+        -translate-y-1/2 text-muted-foreground"
+          />
 
           <Input
             value={search}
@@ -62,29 +128,132 @@ export default function DepartmentPage() {
           />
         </div>
 
-        {/* ADD DEPARTMENT */}
-        <Button className="gap-2" onClick={() => setShowDepartmentForm(true)}>
+        {/* STATUS FILTER */}
+        <Select
+          value={statusFilter}
+          onValueChange={(value) => setStatusFilter(value as "ALL" | "ACTIVE" | "INACTIVE")}
+        >
+          <SelectTrigger className="w-full sm:w-[150px]">
+            <SelectValue placeholder="Filter status" />
+          </SelectTrigger>
+
+          <SelectContent>
+            <SelectItem value="ALL">All Status</SelectItem>
+
+            <SelectItem value="ACTIVE">Active</SelectItem>
+
+            <SelectItem value="INACTIVE">Inactive</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* ADD BUTTON */}
+        <Button className="gap-2" onClick={handleAddDepartment}>
           <Plus className="h-4 w-4" />
           Add Department
         </Button>
-        <Dialog open={showDepartmentForm} onOpenChange={setShowDepartmentForm}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Add Department</DialogTitle>
-            </DialogHeader>
-
-            <DepartmentForm
-              onSuccess={() => {
-                setShowDepartmentForm(false);
-                loadDepartments();
-              }}
-              onCancel={() => setShowDepartmentForm(false)}
-            />
-          </DialogContent>
-        </Dialog>
       </div>
 
+      {/* ============================= */}
+      {/* ADD / EDIT DEPARTMENT DIALOG */}
+      {/* ============================= */}
+
+      <Dialog
+        open={formOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleFormCancel();
+          }
+        }}
+      >
+        <DialogContent className="w-[calc(100%-2rem)] max-w-lg max-h-[90vh] overflow-y-auto rounded-xl">
+          <DialogHeader>
+            <DialogTitle>{editDepartment ? "Edit Department" : "Add Department"}</DialogTitle>
+          </DialogHeader>
+
+          <DepartmentForm
+            department={editDepartment}
+            onSuccess={handleFormSuccess}
+            onCancel={handleFormCancel}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* ============================= */}
+      {/* DEPARTMENT DETAILS DIALOG */}
+      {/* ============================= */}
+
+      <Dialog
+        open={!!selectedDepartment}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedDepartment(null);
+          }
+        }}
+      >
+        <DialogContent className="w-[calc(100%-2rem)] max-w-md rounded-xl">
+          <DialogHeader>
+            <DialogTitle>Department Details</DialogTitle>
+          </DialogHeader>
+
+          {selectedDepartment && (
+            <div className="space-y-5">
+              {/* NAME */}
+              <div>
+                <h3 className="text-xl font-semibold">{selectedDepartment.departmentName}</h3>
+
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Code: {selectedDepartment.departmentCode}
+                </p>
+              </div>
+
+              {/* DETAILS */}
+              <div className="space-y-3 rounded-lg border p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Status</span>
+
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                      selectedDepartment.status === "ACTIVE"
+                        ? "bg-green-100 text-green-700"
+                        : "bg-gray-100 text-gray-600"
+                    }`}
+                  >
+                    {selectedDepartment.status}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Created</span>
+
+                  <span className="text-sm">
+                    {new Date(selectedDepartment.createdAt).toLocaleDateString()}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Updated</span>
+
+                  <span className="text-sm">
+                    {new Date(selectedDepartment.updatedAt).toLocaleDateString()}
+                  </span>
+                </div>
+              </div>
+
+              {/* EDIT */}
+              <div className="flex justify-end">
+                <Button type="button" onClick={handleEditDepartment}>
+                  Edit Department
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ============================= */}
       {/* DEPARTMENT CARDS */}
+      {/* ============================= */}
+
       {loading ? (
         <div className="py-12 text-center text-sm text-muted-foreground">
           Loading departments...
@@ -100,18 +269,29 @@ export default function DepartmentPage() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+        <div
+          className="
+            grid grid-cols-1 gap-5
+            sm:grid-cols-2
+            xl:grid-cols-3
+            2xl:grid-cols-4
+          "
+        >
           {filteredDepartments.map((department) => (
             <div
               key={department._id}
-              className="group cursor-pointer overflow-hidden rounded-xl border bg-card transition-shadow hover:shadow-md"
+              className="
+                group overflow-hidden rounded-xl
+                border bg-card transition-shadow
+                hover:shadow-md
+              "
             >
-              {/* CARD HEADER / IMAGE AREA */}
+              {/* IMAGE / HEADER */}
               <div className="flex h-32 items-center justify-center bg-muted">
                 <Building2 className="h-12 w-12 text-muted-foreground/50" />
               </div>
 
-              {/* CARD CONTENT */}
+              {/* CONTENT */}
               <div className="space-y-3 p-4">
                 <div>
                   <h2 className="truncate font-semibold">{department.departmentName}</h2>
@@ -132,7 +312,13 @@ export default function DepartmentPage() {
                     {department.status}
                   </span>
 
-                  <span className="text-xs text-muted-foreground">View details</span>
+                  <button
+                    type="button"
+                    onClick={() => handleViewDetails(department._id)}
+                    className="text-sm text-primary hover:underline"
+                  >
+                    View details
+                  </button>
                 </div>
               </div>
             </div>
