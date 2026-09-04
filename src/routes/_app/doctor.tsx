@@ -8,7 +8,6 @@ import {
   Sparkles,
   ChevronRight,
 } from "lucide-react";
-import { TopBar } from "@/components/layout/TopBar";
 import { StatCard, Section, StatusPill } from "@/components/layout/DashboardBits";
 import { doctorQueue } from "@/lib/mock-data";
 import { Button } from "@/components/ui/button";
@@ -20,8 +19,7 @@ export const Route = createFileRoute("/_app/doctor")({
 function DoctorDashboard() {
   return (
     <>
-      <TopBar title="Consultation workspace" subtitle="Dr. Vikram Shah · Cardiology · Room 214" />
-      <main className="flex-1 overflow-y-auto px-6 pb-10 pt-6">
+      <main className="flex-1 px-6 pb-10 pt-6">
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <StatCard
             label="Today's Schedule"

@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Construction, ArrowLeft, Sparkles } from "lucide-react";
 import { Link } from "@tanstack/react-router";
-import { TopBar } from "@/components/layout/TopBar";
 import { Button } from "@/components/ui/button";
 import { useAuth, roleHome } from "@/auth/auth";
 import DepartmentPage from "@/modules/master/department/DepartmentPage";
@@ -25,7 +24,6 @@ function ModuleStub() {
   const title = humanize(name);
   return (
     <>
-      <TopBar title={title} subtitle="Module workspace" />
       <main className="flex flex-1 items-center justify-center px-6 py-16">
         <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-10 text-center shadow-[var(--shadow-card)]">
           <div className="mx-auto mb-5 grid h-14 w-14 place-items-center rounded-2xl bg-accent/10 text-accent">

@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { Building2, MapPin, FileCheck, Award, Upload, Save, X } from "lucide-react";
 import { toast } from "sonner";
 
-import { TopBar } from "@/components/layout/TopBar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -189,8 +188,6 @@ function HospitalProfilePage() {
   if (loading) {
     return (
       <>
-        <TopBar title="Hospital Profile" subtitle="Hospital information and registration details" />
-
         <main className="flex-1 px-6 py-6">
           <div className="mx-auto max-w-6xl">
             <div className="rounded-2xl border border-border bg-card p-8 text-center text-muted-foreground">
@@ -204,8 +201,6 @@ function HospitalProfilePage() {
 
   return (
     <>
-      <TopBar title="Hospital Profile" subtitle="Hospital information and registration details" />
-
       <main className="flex-1 px-6 py-6">
         <div className="mx-auto max-w-6xl space-y-6">
           {/* ==========================================

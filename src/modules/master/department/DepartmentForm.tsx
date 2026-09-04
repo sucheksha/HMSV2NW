@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 import { createDepartment, updateDepartment } from "./department.service";
 
@@ -58,23 +59,16 @@ export default function DepartmentForm({ department, onSuccess, onCancel }: Depa
     setError("");
   }, [department]);
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    setError("");
-
-    if (!departmentName.trim()) {
-      setError("Department name is required.");
-      return;
-    }
-
-    if (!departmentCode.trim()) {
-      setError("Department code is required.");
-      return;
-    }
-
+  /**
+   * Performs the actual create/update operation.
+   *
+   * This is kept separate from handleSubmit so that
+   * the Retry button can call the operation again.
+   */
+  const saveDepartment = async () => {
     try {
       setSaving(true);
+      setError("");
 
       const data = {
         departmentName: departmentName.trim(),
@@ -87,19 +81,127 @@ export default function DepartmentForm({ department, onSuccess, onCancel }: Depa
       };
 
       if (isEditMode && department) {
-        await updateDepartment(department._id, data);
+        const response = await updateDepartment(department._id, data);
+
+        toast.success(response.message || "Department updated successfully.");
       } else {
-        await createDepartment(data);
+        const response = await createDepartment(data);
+
+        toast.success(response.message || "Department added successfully.");
       }
 
       onSuccess();
     } catch (error: any) {
       console.error("Failed to save department:", error);
 
-      setError(error?.response?.data?.message || "Failed to save department. Please try again.");
+      const status = error?.response?.status;
+      const backendMessage = error?.response?.data?.message;
+
+      // Network error
+      if (!error?.response) {
+        const message =
+          "Unable to connect to the server. Please check your network connection and try again.";
+
+        setError(message);
+
+        toast.error("Unable to connect to the server.", {
+          description: "Please check your network connection and try again.",
+          action: {
+            label: "Retry",
+            onClick: () => {
+              void saveDepartment();
+            },
+          },
+        });
+
+        return;
+      }
+
+      // Permission error
+      if (status === 403) {
+        const message = backendMessage || "You don't have permission to perform this action.";
+
+        setError(message);
+        toast.error(message);
+
+        return;
+      }
+
+      // Validation / bad request
+      if (status === 400 || status === 422) {
+        const message = backendMessage || "Please correct the highlighted fields.";
+
+        setError(message);
+        toast.error(message);
+
+        return;
+      }
+
+      // Conflict - duplicate department code etc.
+      if (status === 409) {
+        const message = backendMessage || "This department already exists.";
+
+        setError(message);
+        toast.error(message);
+
+        return;
+      }
+
+      // Other backend/server errors
+      const message = backendMessage || "Could not save the department. Please try again.";
+
+      setError(message);
+
+      toast.error(message, {
+        action: {
+          label: "Close",
+          onClick: () => {},
+        },
+      });
     } finally {
       setSaving(false);
     }
+  };
+
+  /**
+   * Handles form submission.
+   *
+   * handleSubmit remains the function used by
+   * <form onSubmit={handleSubmit}>.
+   */
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    setError("");
+
+    // Required field validation
+    if (!departmentName.trim()) {
+      setError("Department name is required.");
+
+      toast.error("Please enter the department name.");
+
+      return;
+    }
+
+    if (!departmentCode.trim()) {
+      setError("Department code is required.");
+
+      toast.error("Please enter the department code.");
+
+      return;
+    }
+
+    // Staff count validation
+    if (staffCount && Number(staffCount) < 0) {
+      setError("Number of staff cannot be negative.");
+
+      toast.error("Please enter a valid number of staff.");
+
+      return;
+    }
+
+    // Perform create/update
+    await saveDepartment();
   };
 
   return (

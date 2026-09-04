@@ -23,7 +23,6 @@ import {
   Legend,
 } from "recharts";
 
-import { TopBar } from "@/components/layout/TopBar";
 import { StatCard, Section, StatusPill } from "@/components/layout/DashboardBits";
 
 import {
@@ -55,8 +54,6 @@ const kpiIcons = [
 function AdminDashboard() {
   return (
     <main className="min-w-0 flex-1 overflow-x-clip">
-      <TopBar title="Admin Dashboard" subtitle="Hospital overview and operations" />
-
       {/* KPI GRID */}
       <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-4 lg:p-6">
         {adminKpis.map((k, i) => {

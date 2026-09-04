@@ -48,19 +48,34 @@ export const getDepartmentById = async (departmentId: string): Promise<Departmen
   return response.data.data;
 };
 //Create department
-export const createDepartment = async (data: CreateDepartmentRequest): Promise<Department> => {
+
+export const createDepartment = async (
+  data: CreateDepartmentRequest,
+): Promise<DepartmentResponse> => {
   const response = await api.post<DepartmentResponse>("/master/departments", data);
-  return response.data.data;
+
+  return response.data;
 };
 // Update department
 export const updateDepartment = async (
   departmentId: string,
   data: UpdateDepartmentRequest,
-): Promise<Department> => {
+): Promise<DepartmentResponse> => {
   const response = await api.patch<DepartmentResponse>(`/master/departments/${departmentId}`, data);
-  return response.data.data;
+
+  return response.data;
 };
 // Delete department
-export const deleteDepartment = async (departmentId: string): Promise<void> => {
-  await api.delete(`/master/departments/${departmentId}`);
+export const deleteDepartment = async (departmentId: string): Promise<{ message: string }> => {
+  const response = await api.delete<{
+    success: boolean;
+    statusCode: number;
+    message: string;
+    data: unknown;
+    errors: string[];
+  }>(`/master/departments/${departmentId}`);
+
+  return {
+    message: response.data.message,
+  };
 };

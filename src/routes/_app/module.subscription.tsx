@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { Check, Sparkles, Send, CreditCard, Building2, Zap } from "lucide-react";
 import { toast } from "sonner";
 
-import { TopBar } from "@/components/layout/TopBar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -415,8 +414,6 @@ function SubscriptionPage() {
   if (loading) {
     return (
       <>
-        <TopBar title="Subscription" subtitle="Plans, billing and add-on services" />
-
         <main className="flex-1 px-6 py-6">
           <div className="mx-auto max-w-6xl">
             <div className="rounded-2xl border border-border bg-card p-8 text-center text-muted-foreground">
@@ -431,8 +428,6 @@ function SubscriptionPage() {
   if (error) {
     return (
       <>
-        <TopBar title="Subscription" subtitle="Plans, billing and add-on services" />
-
         <main className="flex-1 px-6 py-6">
           <div className="mx-auto max-w-6xl">
             <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-8 text-center text-destructive">
@@ -446,8 +441,6 @@ function SubscriptionPage() {
 
   return (
     <>
-      <TopBar title="Subscription" subtitle="Plans, billing and add-on services" />
-
       <main className="flex-1 px-6 py-6">
         <div className="mx-auto max-w-6xl space-y-6">
           {/* =====================================================

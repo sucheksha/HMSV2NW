@@ -1,8 +1,9 @@
-import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { useEffect } from "react";
 
 import { useAuth } from "@/auth/auth";
 import { AppSidebar } from "@/components/layout/AppSidebar";
+import { TopBar } from "@/components/layout/TopBar";
 
 export const Route = createFileRoute("/_app")({
   ssr: false,
@@ -11,16 +12,12 @@ export const Route = createFileRoute("/_app")({
 
 function AppLayout() {
   const { user, loading } = useAuth();
-  const navigate = useNavigate();
 
   useEffect(() => {
     if (!loading && !user) {
-      navigate({
-        to: "/auth",
-        replace: true,
-      });
+      window.location.replace("/auth");
     }
-  }, [loading, user, navigate]);
+  }, [loading, user]);
 
   if (loading || !user) {
     return (
@@ -34,10 +31,12 @@ function AppLayout() {
   }
 
   return (
-    <div className="flex min-h-screen w-full overflow-x-hidden bg-background">
+    <div className="flex h-screen w-full overflow-hidden bg-background">
       <AppSidebar />
 
-      <div className="flex min-w-0 flex-1 flex-col overflow-x-clip">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <TopBar title="Admin Dashboard" subtitle="Hospital overview and operations" />
+
         <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
           <Outlet />
         </div>
