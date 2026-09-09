@@ -28,7 +28,11 @@ export default function DepartmentForm({ department, onSuccess, onCancel }: Depa
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-
+  const [fieldErrors, setFieldErrors] = useState<{
+    departmentName?: string;
+    departmentCode?: string;
+    staffCount?: string;
+  }>({});
   // Load existing department when editing
   useEffect(() => {
     if (department) {
@@ -57,6 +61,7 @@ export default function DepartmentForm({ department, onSuccess, onCancel }: Depa
     }
 
     setError("");
+    setFieldErrors({});
   }, [department]);
 
   /**
@@ -174,33 +179,34 @@ export default function DepartmentForm({ department, onSuccess, onCancel }: Depa
 
     setError("");
 
-    // Required field validation
+    const errors: {
+      departmentName?: string;
+      departmentCode?: string;
+      staffCount?: string;
+    } = {};
+
+    // Department Name
     if (!departmentName.trim()) {
-      setError("Department name is required.");
-
-      toast.error("Please enter the department name.");
-
-      return;
+      errors.departmentName = "Department name is required.";
     }
 
+    // Department Code
     if (!departmentCode.trim()) {
-      setError("Department code is required.");
-
-      toast.error("Please enter the department code.");
-
-      return;
+      errors.departmentCode = "Department code is required.";
     }
 
-    // Staff count validation
+    // Staff Count
     if (staffCount && Number(staffCount) < 0) {
-      setError("Number of staff cannot be negative.");
+      errors.staffCount = "Number of staff cannot be negative.";
+    }
 
-      toast.error("Please enter a valid number of staff.");
+    setFieldErrors(errors);
 
+    // Stop submission if validation failed
+    if (Object.keys(errors).length > 0) {
       return;
     }
 
-    // Perform create/update
     await saveDepartment();
   };
 
@@ -211,14 +217,31 @@ export default function DepartmentForm({ department, onSuccess, onCancel }: Depa
         <Label htmlFor="departmentName">
           Department Name <span className="text-red-500">*</span>
         </Label>
-
         <Input
           id="departmentName"
           value={departmentName}
-          onChange={(event) => setDepartmentName(event.target.value)}
+          onChange={(event) => {
+            setDepartmentName(event.target.value);
+
+            if (fieldErrors.departmentName) {
+              setFieldErrors((current) => ({
+                ...current,
+                departmentName: undefined,
+              }));
+            }
+          }}
           placeholder="e.g. Cardiology"
           disabled={saving}
+          aria-invalid={!!fieldErrors.departmentName}
+          aria-describedby={fieldErrors.departmentName ? "departmentName-error" : undefined}
+          className={fieldErrors.departmentName ? "border-red-500 focus-visible:ring-red-500" : ""}
         />
+
+        {fieldErrors.departmentName && (
+          <p id="departmentName-error" className="text-xs font-medium text-red-600">
+            {fieldErrors.departmentName}
+          </p>
+        )}
       </div>
 
       {/* CODE */}
@@ -226,14 +249,31 @@ export default function DepartmentForm({ department, onSuccess, onCancel }: Depa
         <Label htmlFor="departmentCode">
           Department Code <span className="text-red-500">*</span>
         </Label>
-
         <Input
           id="departmentCode"
           value={departmentCode}
-          onChange={(event) => setDepartmentCode(event.target.value)}
+          onChange={(event) => {
+            setDepartmentCode(event.target.value);
+
+            if (fieldErrors.departmentCode) {
+              setFieldErrors((current) => ({
+                ...current,
+                departmentCode: undefined,
+              }));
+            }
+          }}
           placeholder="e.g. CARD"
           disabled={saving}
+          aria-invalid={!!fieldErrors.departmentCode}
+          aria-describedby={fieldErrors.departmentCode ? "departmentCode-error" : undefined}
+          className={fieldErrors.departmentCode ? "border-red-500 focus-visible:ring-red-500" : ""}
         />
+
+        {fieldErrors.departmentCode && (
+          <p id="departmentCode-error" className="text-xs font-medium text-red-600">
+            {fieldErrors.departmentCode}
+          </p>
+        )}
       </div>
 
       {/* STAFF COUNT */}
@@ -241,16 +281,33 @@ export default function DepartmentForm({ department, onSuccess, onCancel }: Depa
         <Label htmlFor="staffCount">
           Number of Staff <span className="text-muted-foreground">(Optional)</span>
         </Label>
-
         <Input
           id="staffCount"
           type="number"
           min="0"
           value={staffCount}
-          onChange={(event) => setStaffCount(event.target.value)}
+          onChange={(event) => {
+            setStaffCount(event.target.value);
+
+            if (fieldErrors.staffCount) {
+              setFieldErrors((current) => ({
+                ...current,
+                staffCount: undefined,
+              }));
+            }
+          }}
           placeholder="e.g. 25"
           disabled={saving}
+          aria-invalid={!!fieldErrors.staffCount}
+          aria-describedby={fieldErrors.staffCount ? "staffCount-error" : undefined}
+          className={fieldErrors.staffCount ? "border-red-500 focus-visible:ring-red-500" : ""}
         />
+
+        {fieldErrors.staffCount && (
+          <p id="staffCount-error" className="text-xs font-medium text-red-600">
+            {fieldErrors.staffCount}
+          </p>
+        )}
       </div>
 
       {/* FLOOR + ROOM */}

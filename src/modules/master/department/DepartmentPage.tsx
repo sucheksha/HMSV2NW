@@ -1,13 +1,26 @@
-import { useEffect, useState } from "react";
-import { Plus, Search, Building2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Building2,
+  CalendarDays,
+  Check,
+  Edit3,
+  Loader2,
+  Plus,
+  Search,
+  ToggleLeft,
+  UserRound,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
-
-import { getDepartments, getDepartmentById, deleteDepartment } from "./department.service";
+import {
+  deleteDepartment,
+  getDepartments,
+  getDepartmentById,
+  updateDepartment,
+} from "./department.service";
 import type { Department } from "./department.types";
 import DepartmentForm from "./DepartmentForm";
-
 import { getApiErrorMessage } from "@/lib/apiErrorMessage";
-
 import {
   Select,
   SelectContent,
@@ -15,59 +28,49 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 export default function DepartmentPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
-
   const [search, setSearch] = useState("");
-
   const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "INACTIVE">("ALL");
-
-  // Add/Edit form dialog
+  // ADD / EDIT
   const [formOpen, setFormOpen] = useState(false);
   const [editDepartment, setEditDepartment] = useState<Department | null>(null);
-
-  // Details dialog
   const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null);
-
-  // Selection / Delete
+  // STATUS TOGGLE
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [statusChanging, setStatusChanging] = useState(false);
+  // SELECTION / DELETE
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedDepartmentIds, setSelectedDepartmentIds] = useState<string[]>([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
-
-  // Pagination
+  // PAGINATION
   const [currentPage, setCurrentPage] = useState(1);
   const departmentsPerPage = 8;
-
-  // =============================
   // LOAD DEPARTMENTS
-  // =============================
-
   const loadDepartments = async () => {
     try {
       setLoading(true);
       setLoadError("");
-
       const data = await getDepartments();
-
       setDepartments(data);
     } catch (error) {
       console.error("Failed to load departments:", error);
-
       const message = getApiErrorMessage(error, "Unable to load departments. Please try again.");
-
       setLoadError(message);
-
-      // Network error gets Retry
       if (!errorHasResponse(error)) {
         toast.error("Unable to connect to the server.", {
           description: "Please check your network connection and try again.",
@@ -87,27 +90,33 @@ export default function DepartmentPage() {
       setLoading(false);
     }
   };
-
-  // =============================
-  // LOAD WHEN PAGE OPENS
-  // =============================
-
+  // INITIAL LOAD
   useEffect(() => {
     void loadDepartments();
   }, []);
-
-  // =============================
-  // RESET PAGINATION
-  // =============================
-
+  // RESET PAGINATION WHEN SEARCH / FILTER CHANGES
   useEffect(() => {
     setCurrentPage(1);
   }, [search, statusFilter]);
-
-  // =============================
-  // VIEW DEPARTMENT DETAILS
-  // =============================
-
+  // FILTER DEPARTMENTS
+  const filteredDepartments = useMemo(() => {
+    const searchText = search.toLowerCase().trim();
+    return departments.filter((department) => {
+      const matchesSearch =
+        department.departmentName.toLowerCase().includes(searchText) ||
+        department.departmentCode.toLowerCase().includes(searchText);
+      const matchesStatus = statusFilter === "ALL" || department.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [departments, search, statusFilter]);
+  // PAGINATION
+  const totalPages = Math.ceil(filteredDepartments.length / departmentsPerPage);
+  const startIndex = (currentPage - 1) * departmentsPerPage;
+  const paginatedDepartments = filteredDepartments.slice(
+    startIndex,
+    startIndex + departmentsPerPage,
+  );
+  // VIEW DETAILS
   const handleViewDetails = async (departmentId: string) => {
     try {
       const department = await getDepartmentById(departmentId);
@@ -138,67 +147,97 @@ export default function DepartmentPage() {
       }
     }
   };
+  // STATUS TOGGLE - OPEN CONFIRMATION
+  const handleStatusToggleRequest = () => {
+    if (!selectedDepartment || statusChanging) {
+      return;
+    }
+    setStatusDialogOpen(true);
+  };
+  // STATUS TOGGLE - CONFIRM
+  const handleConfirmStatusChange = async () => {
+    if (!selectedDepartment || statusChanging) {
+      return;
+    }
+    const departmentId = selectedDepartment._id;
+    const currentStatus = selectedDepartment.status;
+    const newStatus: "ACTIVE" | "INACTIVE" = currentStatus === "ACTIVE" ? "INACTIVE" : "ACTIVE";
+    try {
+      setStatusChanging(true);
+      /* We reuse the existing production PATCH endpoint. ACTIVE -> INACTIVE INACTIVE -> ACTIVE */
+      const response = await updateDepartment(departmentId, {
+        status: newStatus,
+      });
+      const updatedDepartment = response.data;
+      setDepartments((currentDepartments) =>
+        currentDepartments.map((department) =>
+          department._id === departmentId ? updatedDepartment : department,
+        ),
+      );
+      setSelectedDepartment(updatedDepartment);
+      setStatusDialogOpen(false); // Close confirmation dialog
+      toast.success(
+        newStatus === "ACTIVE"
+          ? "Department activated successfully."
+          : "Department deactivated successfully.",
+      );
+    } catch (error) {
+      console.error("Failed to change department status:", error);
 
-  // =============================
-  // ADD
-  // =============================
+      const message = getApiErrorMessage(
+        error,
+        `Unable to ${
+          newStatus === "ACTIVE" ? "activate" : "deactivate"
+        } the department. Please try again.`,
+      );
 
+      if (!errorHasResponse(error)) {
+        toast.error("Unable to connect to the server.", {
+          description: "Please check your network connection and try again.",
+        });
+      } else {
+        toast.error("Unable to change department status.", {
+          description: message,
+        });
+      }
+    } finally {
+      setStatusChanging(false);
+    }
+  };
+  // ADD DEPARTMENT
   const handleAddDepartment = () => {
     setEditDepartment(null);
     setFormOpen(true);
   };
-
-  // =============================
-  // EDIT
-  // =============================
-
+  // EDIT DEPARTMENT
   const handleEditDepartment = () => {
     if (!selectedDepartment) {
       return;
     }
-
-    // Close details popup
     setSelectedDepartment(null);
-
-    // Open edit form
     setEditDepartment(selectedDepartment);
     setFormOpen(true);
   };
-
-  // =============================
   // FORM SUCCESS
-  // =============================
-
   const handleFormSuccess = async () => {
     setFormOpen(false);
     setEditDepartment(null);
-
     await loadDepartments();
   };
-
-  // =============================
   // FORM CANCEL
-  // =============================
-
   const handleFormCancel = () => {
     setFormOpen(false);
     setEditDepartment(null);
   };
-
-  // =============================
   // SELECTION
-  // =============================
-
   const handleToggleSelection = (departmentId: string) => {
     setSelectedDepartmentIds((current) => {
       if (current.includes(departmentId)) {
         return current.filter((id) => id !== departmentId);
       }
-
       return [...current, departmentId];
     });
   };
-
   const handleSelectAll = () => {
     if (
       filteredDepartments.length > 0 &&
@@ -207,61 +246,44 @@ export default function DepartmentPage() {
       setSelectedDepartmentIds([]);
       return;
     }
-
     setSelectedDepartmentIds(filteredDepartments.map((department) => department._id));
   };
-
   const handleCancelSelection = () => {
     setSelectionMode(false);
     setSelectedDepartmentIds([]);
     setDeleteError("");
   };
-
-  // =============================
-  // DELETE SELECTED DEPARTMENTS
-  // =============================
-
+  // DELETE SELECTED
   const handleDeleteSelected = async () => {
     if (selectedDepartmentIds.length === 0) {
       return;
     }
-
     const departmentIdsToDelete = [...selectedDepartmentIds];
-
     const selectedCount = departmentIdsToDelete.length;
-
     try {
       setDeleting(true);
       setDeleteError("");
-
       const results = await Promise.all(
         departmentIdsToDelete.map((departmentId) => deleteDepartment(departmentId)),
       );
-
       setDeleteDialogOpen(false);
       setSelectedDepartmentIds([]);
       setSelectionMode(false);
-
       const successMessage =
         selectedCount === 1
           ? results[0]?.message || "Department deleted successfully."
           : `${selectedCount} departments deleted successfully.`;
 
       toast.success(successMessage);
-
       await loadDepartments();
       setCurrentPage(1);
     } catch (error) {
       console.error("Failed to delete departments:", error);
-
       const message = getApiErrorMessage(
         error,
         "Could not delete the department. Please try again.",
       );
-
       setDeleteError(message);
-
-      // Network error → Retry
       if (!errorHasResponse(error)) {
         toast.error("Unable to connect to the server.", {
           description: "Please check your network connection and try again.",
@@ -272,11 +294,8 @@ export default function DepartmentPage() {
             },
           },
         });
-
         return;
       }
-
-      // Other backend errors → show message, no Retry
       toast.error("Unable to delete department.", {
         description: message,
       });
@@ -284,74 +303,75 @@ export default function DepartmentPage() {
       setDeleting(false);
     }
   };
-
-  // =============================
-  // SEARCH + FILTER
-  // =============================
-
-  const filteredDepartments = departments.filter((department) => {
-    const searchText = search.toLowerCase().trim();
-
-    const matchesSearch =
-      department.departmentName.toLowerCase().includes(searchText) ||
-      department.departmentCode.toLowerCase().includes(searchText);
-
-    const matchesStatus = statusFilter === "ALL" || department.status === statusFilter;
-
-    return matchesSearch && matchesStatus;
-  });
-
-  // =============================
-  // PAGINATION
-  // =============================
-
-  const totalPages = Math.ceil(filteredDepartments.length / departmentsPerPage);
-
-  const startIndex = (currentPage - 1) * departmentsPerPage;
-
-  const paginatedDepartments = filteredDepartments.slice(
-    startIndex,
-    startIndex + departmentsPerPage,
-  );
-
+  // CLEAR SEARC
+  const handleClearSearch = () => {
+    setSearch("");
+  };
+  // RENDER
   return (
     <div className="space-y-6 p-6">
-      {/* PAGE HEADER */}
       <div>
-        <h1 className="text-2xl font-semibold">Departments</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Departments</h1>
 
-        <p className="text-sm text-muted-foreground">Manage hospital departments.</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Manage hospital departments and their operational status.
+        </p>
       </div>
-
-      {/* SEARCH + FILTER + ADD */}
+      {/* =====================================================
+          SEARCH / FILTER / ACTIONS
+      ====================================================== */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        {/* LEFT CONTROLS */}
+        {/* SEARCH + FILTER */}
         <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
           {/* SEARCH */}
           <div className="relative w-full sm:w-[360px]">
             <Search
               className="
+                pointer-events-none
                 absolute left-3 top-1/2
                 h-4 w-4
                 -translate-y-1/2
                 text-muted-foreground
               "
             />
-
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search departments..."
-              className="pl-9"
+              className="h-10 pl-9 pr-9"
+              aria-label="Search departments"
             />
+            {search && (
+              <button
+                type="button"
+                onClick={handleClearSearch}
+                className="
+                  absolute right-2 top-1/2
+                  flex h-7 w-7
+                  -translate-y-1/2
+                  items-center justify-center
+                  rounded-md
+                  text-muted-foreground
+                  transition-colors
+                  hover:bg-muted
+                  hover:text-foreground
+                  focus-visible:outline-none
+                  focus-visible:ring-2
+                  focus-visible:ring-primary
+                "
+                aria-label="Clear department search"
+                title="Clear search"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
           </div>
-
           {/* STATUS FILTER */}
           <Select
             value={statusFilter}
             onValueChange={(value) => setStatusFilter(value as "ALL" | "ACTIVE" | "INACTIVE")}
           >
-            <SelectTrigger className="w-full sm:w-[150px]">
+            <SelectTrigger className="h-10 w-full sm:w-[150px]">
               <SelectValue placeholder="Filter status" />
             </SelectTrigger>
 
@@ -364,16 +384,13 @@ export default function DepartmentPage() {
             </SelectContent>
           </Select>
         </div>
-
-        {/* RIGHT ACTIONS */}
+        {/* ACTIONS */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* SELECTION TOOLBAR */}
           {selectionMode && (
             <div className="flex items-center gap-1 rounded-lg border bg-muted/30 p-1 shadow-sm">
               <span className="px-3 text-sm font-medium text-muted-foreground">
                 {selectedDepartmentIds.length} selected
               </span>
-
               <Button
                 type="button"
                 variant="ghost"
@@ -386,7 +403,6 @@ export default function DepartmentPage() {
                   ? "Clear all"
                   : "Select all"}
               </Button>
-
               <Button
                 type="button"
                 variant="destructive"
@@ -400,7 +416,6 @@ export default function DepartmentPage() {
               >
                 Delete
               </Button>
-
               <Button
                 type="button"
                 variant="ghost"
@@ -413,28 +428,20 @@ export default function DepartmentPage() {
               </Button>
             </div>
           )}
-
-          {/* SELECT */}
           {!selectionMode && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setSelectionMode(true)}
-              className="gap-2"
-            >
+            <Button type="button" variant="outline" onClick={() => setSelectionMode(true)}>
               Select
             </Button>
           )}
-
-          {/* ADD */}
           <Button type="button" onClick={handleAddDepartment} className="gap-2 shadow-sm">
             <Plus className="h-4 w-4" />
             Add Department
           </Button>
         </div>
       </div>
-
-      {/* ADD / EDIT DEPARTMENT DIALOG */}
+      {/* =====================================================
+          ADD / EDIT DIALOG
+      ====================================================== */}
       <Dialog
         open={formOpen}
         onOpenChange={(open) => {
@@ -455,7 +462,6 @@ export default function DepartmentPage() {
           <DialogHeader>
             <DialogTitle>{editDepartment ? "Edit Department" : "Add Department"}</DialogTitle>
           </DialogHeader>
-
           <DepartmentForm
             department={editDepartment}
             onSuccess={handleFormSuccess}
@@ -463,12 +469,13 @@ export default function DepartmentPage() {
           />
         </DialogContent>
       </Dialog>
-
-      {/* DEPARTMENT DETAILS DIALOG */}
+      {/* =====================================================
+          DEPARTMENT DETAILS DIALOG
+      ====================================================== */}
       <Dialog
         open={!!selectedDepartment}
         onOpenChange={(open) => {
-          if (!open) {
+          if (!open && !statusChanging) {
             setSelectedDepartment(null);
           }
         }}
@@ -477,72 +484,304 @@ export default function DepartmentPage() {
           className="
             w-[calc(100%-2rem)]
             max-w-md
-            rounded-xl
+            overflow-hidden
+            rounded-2xl
+            p-0
           "
         >
-          <DialogHeader>
-            <DialogTitle>Department Details</DialogTitle>
-          </DialogHeader>
-
           {selectedDepartment && (
-            <div className="space-y-5">
-              {/* NAME */}
-              <div>
-                <h3 className="text-xl font-semibold">{selectedDepartment.departmentName}</h3>
-
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Code: {selectedDepartment.departmentCode}
-                </p>
+            <>
+              {/* HEADER */}
+              <div className="border-b bg-muted/20 px-6 py-5">
+                <DialogHeader>
+                  <div className="flex items-start gap-4">
+                    <div
+                      className="
+                        flex h-12 w-12 shrink-0
+                        items-center justify-center
+                        rounded-xl
+                        bg-primary/10
+                        text-primary
+                      "
+                    >
+                      <Building2 className="h-6 w-6" />
+                    </div>
+                    <div className="min-w-0">
+                      <DialogTitle className="truncate text-xl">
+                        {selectedDepartment.departmentName}
+                      </DialogTitle>
+                      <DialogDescription className="mt-1">
+                        Department code:{" "}
+                        <span className="font-medium text-foreground">
+                          {selectedDepartment.departmentCode}
+                        </span>
+                      </DialogDescription>
+                    </div>
+                  </div>
+                </DialogHeader>
               </div>
-
-              {/* DETAILS */}
-              <div className="space-y-3 rounded-lg border p-4">
-                {/* STATUS */}
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Status</span>
-
-                  <span
-                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                      selectedDepartment.status === "ACTIVE"
-                        ? "bg-green-100 text-green-700"
-                        : "bg-gray-100 text-gray-600"
-                    }`}
-                  >
-                    {selectedDepartment.status}
-                  </span>
+              {/* BODY */}
+              <div className="space-y-5 px-6 py-5">
+                {/* STATUS CONTROL */}
+                <div className="rounded-xl border bg-card p-4 shadow-sm">
+                  <div className="flex items-center justify-between gap-4">
+                    {/* STATUS DESCRIPTION */}
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div
+                        className={`
+                          flex h-10 w-10 shrink-0
+                          items-center justify-center
+                          rounded-lg
+                          ${
+                            selectedDepartment.status === "ACTIVE"
+                              ? "bg-green-100 text-green-700"
+                              : "bg-muted text-muted-foreground"
+                          }
+                        `}
+                      >
+                        <ToggleLeft className="h-5 w-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold">Department Status</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          Control whether this department is active.
+                        </p>
+                      </div>
+                    </div>
+                    {/* TOGGLE */}
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={selectedDepartment.status === "ACTIVE"}
+                      aria-label={
+                        selectedDepartment.status === "ACTIVE"
+                          ? "Deactivate department"
+                          : "Activate department"
+                      }
+                      disabled={statusChanging}
+                      onClick={handleStatusToggleRequest}
+                      className={`
+                        relative inline-flex
+                        h-7 w-12 shrink-0
+                        items-center
+                        rounded-full
+                        border-2 border-transparent
+                        transition-all duration-200
+                        focus-visible:outline-none
+                        focus-visible:ring-2
+                        focus-visible:ring-primary
+                        focus-visible:ring-offset-2
+                        disabled:cursor-not-allowed
+                        disabled:opacity-60
+                        ${
+                          selectedDepartment.status === "ACTIVE"
+                            ? "cursor-pointer bg-green-600"
+                            : "cursor-pointer bg-muted-foreground/30"
+                        }
+                      `}
+                    >
+                      <span
+                        className={`
+                          pointer-events-none
+                          block h-5 w-5
+                          rounded-full
+                          bg-white
+                          shadow-sm
+                          transition-transform duration-200
+                          ${
+                            selectedDepartment.status === "ACTIVE"
+                              ? "translate-x-5"
+                              : "translate-x-0"
+                          }
+                        `}
+                      />
+                    </button>
+                  </div>
+                  {/* STATUS LABEL */}
+                  <div className="mt-3 flex items-center justify-between border-t pt-3">
+                    <span className="text-xs text-muted-foreground">Current status</span>
+                    <span
+                      className={`
+                        inline-flex
+                        items-center gap-1.5
+                        rounded-full
+                        px-2.5 py-1
+                        text-xs font-semibold
+                        ${
+                          selectedDepartment.status === "ACTIVE"
+                            ? "bg-green-100 text-green-700"
+                            : "bg-muted text-muted-foreground"
+                        }
+                      `}
+                    >
+                      <span
+                        className={`
+                          h-1.5 w-1.5 rounded-full
+                          ${
+                            selectedDepartment.status === "ACTIVE"
+                              ? "bg-green-600"
+                              : "bg-muted-foreground"
+                          }
+                        `}
+                      />
+                      {selectedDepartment.status === "ACTIVE" ? "Active" : "Inactive"}
+                    </span>
+                  </div>
                 </div>
-
-                {/* CREATED */}
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Created</span>
-
-                  <span className="text-sm">
-                    {new Date(selectedDepartment.createdAt).toLocaleDateString()}
-                  </span>
-                </div>
-
-                {/* UPDATED */}
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Updated</span>
-
-                  <span className="text-sm">
-                    {new Date(selectedDepartment.updatedAt).toLocaleDateString()}
-                  </span>
+                {/* CREATED / UPDATED */}
+                <div className="grid grid-cols-2 gap-3">
+                  <DetailItem
+                    icon={CalendarDays}
+                    label="Created"
+                    value={formatDate(selectedDepartment.createdAt)}
+                  />
+                  <DetailItem
+                    icon={CalendarDays}
+                    label="Last Updated"
+                    value={formatDate(selectedDepartment.updatedAt)}
+                  />
                 </div>
               </div>
-
-              {/* EDIT */}
-              <div className="flex justify-end">
-                <Button type="button" onClick={handleEditDepartment}>
+              {/* FOOTER */}
+              <div className="flex justify-end gap-2 border-t bg-muted/10 px-6 py-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setSelectedDepartment(null)}
+                  disabled={statusChanging}
+                >
+                  Close
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleEditDepartment}
+                  disabled={statusChanging}
+                  className="gap-2"
+                >
+                  <Edit3 className="h-4 w-4" />
                   Edit Department
                 </Button>
               </div>
-            </div>
+            </>
           )}
         </DialogContent>
       </Dialog>
 
-      {/* DELETE CONFIRMATION DIALOG */}
+      {/* =====================================================
+          STATUS CONFIRMATION DIALOG
+      ====================================================== */}
+
+      <Dialog
+        open={statusDialogOpen}
+        onOpenChange={(open) => {
+          if (!statusChanging) {
+            setStatusDialogOpen(open);
+          }
+        }}
+      >
+        <DialogContent
+          className="
+            w-[calc(100%-2rem)]
+            max-w-md
+            rounded-2xl
+          "
+        >
+          {selectedDepartment && (
+            <>
+              <DialogHeader>
+                <div className="flex items-start gap-3">
+                  <div
+                    className={`
+                      flex h-10 w-10 shrink-0
+                      items-center justify-center
+                      rounded-full
+                      ${
+                        selectedDepartment.status === "ACTIVE"
+                          ? "bg-amber-100 text-amber-700"
+                          : "bg-green-100 text-green-700"
+                      }
+                    `}
+                  >
+                    {selectedDepartment.status === "ACTIVE" ? (
+                      <ToggleLeft className="h-5 w-5" />
+                    ) : (
+                      <Check className="h-5 w-5" />
+                    )}
+                  </div>
+
+                  <div>
+                    <DialogTitle>
+                      {selectedDepartment.status === "ACTIVE"
+                        ? "Deactivate Department?"
+                        : "Activate Department?"}
+                    </DialogTitle>
+                    <DialogDescription className="mt-2">
+                      You are about to{" "}
+                      {selectedDepartment.status === "ACTIVE" ? "deactivate" : "activate"}{" "}
+                      <span className="font-medium text-foreground">
+                        {selectedDepartment.departmentName}
+                      </span>
+                      .{" "}
+                    </DialogDescription>
+                  </div>
+                </div>
+              </DialogHeader>
+              <div
+                className={`
+                  rounded-xl border p-4
+                  ${
+                    selectedDepartment.status === "ACTIVE"
+                      ? "border-amber-200 bg-amber-50"
+                      : "border-green-200 bg-green-50"
+                  }
+                `}
+              >
+                <p
+                  className={`
+                    text-sm
+                    ${selectedDepartment.status === "ACTIVE" ? "text-amber-800" : "text-green-800"}
+                  `}
+                >
+                  {selectedDepartment.status === "ACTIVE"
+                    ? "The department will remain in the system, but its status will change to inactive."
+                    : "The department will become active again and will be available as an active department."}
+                </p>
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setStatusDialogOpen(false)}
+                  disabled={statusChanging}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  variant={selectedDepartment.status === "ACTIVE" ? "destructive" : "default"}
+                  onClick={handleConfirmStatusChange}
+                  disabled={statusChanging}
+                  className="min-w-[120px]"
+                >
+                  {statusChanging ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Updating...
+                    </>
+                  ) : selectedDepartment.status === "ACTIVE" ? (
+                    "Deactivate"
+                  ) : (
+                    "Activate"
+                  )}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+      {/* =====================================================
+          DELETE CONFIRMATION DIALOG
+      ====================================================== */}
       <Dialog
         open={deleteDialogOpen}
         onOpenChange={(open) => {
@@ -555,7 +794,13 @@ export default function DepartmentPage() {
           }
         }}
       >
-        <DialogContent className="w-[calc(100%-2rem)] max-w-md rounded-xl">
+        <DialogContent
+          className="
+            w-[calc(100%-2rem)]
+            max-w-md
+            rounded-xl
+          "
+        >
           <DialogHeader>
             <DialogTitle>Delete Department</DialogTitle>
           </DialogHeader>
@@ -566,21 +811,17 @@ export default function DepartmentPage() {
                 Are you sure you want to delete {selectedDepartmentIds.length} department
                 {selectedDepartmentIds.length !== 1 ? "s" : ""}?
               </p>
-
               <p className="mt-1 text-sm text-red-700">
                 This action will deactivate the selected department
                 {selectedDepartmentIds.length !== 1 ? "s" : ""} from the department list.
               </p>
             </div>
-
-            {/* ERROR */}
             {deleteError && (
               <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
                 {deleteError}
               </div>
             )}
 
-            {/* ACTIONS */}
             <div className="flex justify-end gap-2 pt-2">
               <Button
                 type="button"
@@ -590,32 +831,35 @@ export default function DepartmentPage() {
               >
                 Cancel
               </Button>
-
               <Button
                 type="button"
                 variant="destructive"
                 onClick={handleDeleteSelected}
                 disabled={deleting}
               >
-                {deleting ? "Deleting..." : "Yes, Delete"}
+                {deleting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  "Yes, Delete"
+                )}
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* DEPARTMENT CONTENT */}
+      {/* =====================================================
+          DEPARTMENT CONTENT
+      ====================================================== */}
       {loading ? (
-        <div className="py-12 text-center text-sm text-muted-foreground">
-          Loading departments...
-        </div>
+        <DepartmentLoadingState />
       ) : loadError ? (
         <div className="rounded-xl border border-red-200 bg-red-50 p-10 text-center">
           <div className="mx-auto max-w-md">
             <h3 className="text-sm font-semibold text-red-800">Unable to load departments</h3>
-
             <p className="mt-2 text-sm text-red-700">{loadError}</p>
-
             <Button
               type="button"
               variant="outline"
@@ -629,22 +873,14 @@ export default function DepartmentPage() {
           </div>
         </div>
       ) : filteredDepartments.length === 0 ? (
-        <div className="rounded-xl border border-dashed p-12 text-center">
-          <Building2
-            className="
-              mx-auto h-10 w-10
-              text-muted-foreground
-            "
-          />
-
-          <h3 className="mt-4 text-sm font-semibold">No departments found</h3>
-
-          <p className="mt-1 text-sm text-muted-foreground">
-            {search || statusFilter !== "ALL"
-              ? "Try changing your search or filter."
-              : "No departments have been created yet."}
-          </p>
-        </div>
+        <DepartmentEmptyState
+          hasFilters={!!search || statusFilter !== "ALL"}
+          onClearFilters={() => {
+            setSearch("");
+            setStatusFilter("ALL");
+          }}
+          onAddDepartment={handleAddDepartment}
+        />
       ) : (
         <>
           {/* CARDS */}
@@ -657,92 +893,16 @@ export default function DepartmentPage() {
             "
           >
             {paginatedDepartments.map((department) => (
-              <div
+              <DepartmentCard
                 key={department._id}
-                className={`
-                    group relative overflow-hidden
-                    rounded-xl border
-                    bg-card
-                    transition-shadow
-                    hover:shadow-md
-                    ${
-                      selectionMode && selectedDepartmentIds.includes(department._id)
-                        ? "ring-2 ring-primary"
-                        : ""
-                    }
-                  `}
-              >
-                {/* IMAGE / HEADER */}
-                <div
-                  className="
-                      relative flex h-32
-                      items-center
-                      justify-center
-                      bg-muted
-                    "
-                >
-                  {selectionMode && (
-                    <input
-                      type="checkbox"
-                      checked={selectedDepartmentIds.includes(department._id)}
-                      onChange={() => handleToggleSelection(department._id)}
-                      className="
-                          absolute left-3 top-3
-                          h-5 w-5
-                          cursor-pointer
-                          accent-primary
-                        "
-                      aria-label={`Select ${department.departmentName}`}
-                    />
-                  )}
-
-                  <Building2
-                    className="
-                        h-12 w-12
-                        text-muted-foreground/50
-                      "
-                  />
-                </div>
-
-                {/* CARD CONTENT */}
-                <div className="space-y-3 p-4">
-                  <div>
-                    <h2 className="truncate font-semibold">{department.departmentName}</h2>
-
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Code: {department.departmentCode}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    {/* STATUS */}
-                    <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                        department.status === "ACTIVE"
-                          ? "bg-green-100 text-green-700"
-                          : "bg-gray-100 text-gray-600"
-                      }`}
-                    >
-                      {department.status}
-                    </span>
-
-                    {/* VIEW DETAILS */}
-                    <button
-                      type="button"
-                      onClick={() => handleViewDetails(department._id)}
-                      className="
-                          text-sm text-primary
-                          hover:underline
-                        "
-                    >
-                      View details
-                    </button>
-                  </div>
-                </div>
-              </div>
+                department={department}
+                selectionMode={selectionMode}
+                selected={selectedDepartmentIds.includes(department._id)}
+                onSelect={() => handleToggleSelection(department._id)}
+                onViewDetails={() => void handleViewDetails(department._id)}
+              />
             ))}
           </div>
-
           {/* PAGINATION */}
           {totalPages > 1 && (
             <div
@@ -755,14 +915,11 @@ export default function DepartmentPage() {
                 sm:flex-row
               "
             >
-              {/* RESULT COUNT */}
               <p className="text-sm text-muted-foreground">
                 Showing {startIndex + 1}–
                 {Math.min(startIndex + departmentsPerPage, filteredDepartments.length)} of{" "}
                 {filteredDepartments.length}
               </p>
-
-              {/* PAGINATION BUTTONS */}
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
@@ -772,7 +929,6 @@ export default function DepartmentPage() {
                 >
                   Previous
                 </Button>
-
                 <div className="flex items-center gap-1">
                   {Array.from(
                     {
@@ -790,7 +946,6 @@ export default function DepartmentPage() {
                     </Button>
                   ))}
                 </div>
-
                 <Button
                   variant="outline"
                   size="sm"
@@ -807,18 +962,302 @@ export default function DepartmentPage() {
     </div>
   );
 }
+/* =========================================================
+   DEPARTMENT CARD
+========================================================= */
+interface DepartmentCardProps {
+  department: Department;
+  selectionMode: boolean;
+  selected: boolean;
+  onSelect: () => void;
+  onViewDetails: () => void;
+}
+function DepartmentCard({
+  department,
+  selectionMode,
+  selected,
+  onSelect,
+  onViewDetails,
+}: DepartmentCardProps) {
+  const isActive = department.status === "ACTIVE";
+  return (
+    <div
+      className={`
+        group relative overflow-hidden
+        rounded-2xl border
+        bg-card
+        shadow-sm
+        transition-all duration-200
+        hover:-translate-y-0.5
+        hover:shadow-lg
+        ${selected ? "ring-2 ring-primary ring-offset-2" : ""}
+      `}
+    >
+      {/* TOP STATUS ACCENT */}
+      <div
+        className={`
+          h-1 w-full
+          ${isActive ? "bg-green-500" : "bg-muted-foreground/30"}
+        `}
+      />
+      {/* CARD HEADER */}
+      <div className="flex items-start justify-between gap-3 p-5 pb-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <div
+            className="
+              flex h-11 w-11 shrink-0
+              items-center justify-center
+              rounded-xl
+              bg-primary/10
+              text-primary
+              transition-transform
+              duration-200
+              group-hover:scale-105
+            "
+          >
+            <Building2 className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="truncate font-semibold">{department.departmentName}</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">{department.departmentCode}</p>
+          </div>
+        </div>
+        {selectionMode && (
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={onSelect}
+            className="
+              mt-1 h-4 w-4
+              cursor-pointer
+              accent-primary
+            "
+            aria-label={`Select ${department.departmentName}`}
+          />
+        )}
+      </div>
+      {/* STATUS */}
+      <div className="px-5">
+        <span
+          className={`
+            inline-flex
+            items-center gap-1.5
+            rounded-full
+            px-2.5 py-1
+            text-xs font-semibold
+            ${isActive ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"}
+          `}
+        >
+          <span
+            className={`
+              h-1.5 w-1.5 rounded-full
+              ${isActive ? "bg-green-600" : "bg-muted-foreground"}
+            `}
+          />
 
-/**
- * Returns true when Axios received an HTTP response.
- *
- * This lets us distinguish:
- * - Network/server unreachable → Retry
- * - Backend returned 400/403/404/etc. → show backend message
- */
+          {isActive ? "Active" : "Inactive"}
+        </span>
+      </div>
+      {/* CARD INFORMATION */}
+      <div className="grid grid-cols-2 gap-4 p-5">
+        <MiniDetail
+          icon={UserRound}
+          label="Staff"
+          value={
+            department.staffCount !== undefined && department.staffCount !== null
+              ? String(department.staffCount)
+              : "—"
+          }
+        />
+        <MiniDetail icon={Building2} label="Floor" value={department.floor || "—"} />
+        <MiniDetail icon={Building2} label="Room" value={department.roomNumber || "—"} />
+        <MiniDetail
+          icon={CalendarDays}
+          label="Updated"
+          value={formatShortDate(department.updatedAt)}
+        />
+      </div>
+      {/* CARD FOOTER */}
+      <div className="border-t bg-muted/20 px-5 py-3">
+        <Button
+          type="button"
+          variant="ghost"
+          className="
+            h-9 w-full
+            justify-between
+            px-2
+            text-sm
+            text-primary
+            hover:bg-primary/5
+            hover:text-primary
+          "
+          onClick={onViewDetails}
+        >
+          View details
+          <span className="transition-transform duration-200 group-hover:translate-x-1">→</span>
+        </Button>
+      </div>
+    </div>
+  );
+} //Detail item component
+function DetailItem({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof CalendarDays;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-xl border bg-muted/20 p-3">
+      <div className="flex items-center gap-2">
+        <Icon className="h-4 w-4 text-muted-foreground" />
+        <span className="text-xs text-muted-foreground">{label}</span>
+      </div>
+      <p className="mt-1 text-sm font-medium">{value}</p>
+    </div>
+  );
+} //MINI DETAIL
+function MiniDetail({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof CalendarDays;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="min-w-0">
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <Icon className="h-3.5 w-3.5" />
+        <span>{label}</span>
+      </div>
+      <p className="mt-1 truncate text-sm font-medium">{value}</p>
+    </div>
+  );
+}
+//LOADING STATE
+function DepartmentLoadingState() {
+  return (
+    <div
+      className="
+        grid grid-cols-1 gap-5
+        sm:grid-cols-2
+        xl:grid-cols-3
+        2xl:grid-cols-4
+      "
+    >
+      {Array.from({ length: 8 }).map((_, index) => (
+        <div
+          key={index}
+          className="
+              overflow-hidden
+              rounded-2xl
+              border
+              bg-card
+            "
+        >
+          <div className="h-1 bg-muted" />
+          <div className="animate-pulse p-5">
+            <div className="flex gap-3">
+              <div className="h-11 w-11 rounded-xl bg-muted" />
+              <div className="flex-1 space-y-2">
+                <div className="h-4 w-3/4 rounded bg-muted" />
+                <div className="h-3 w-1/2 rounded bg-muted" />
+              </div>
+            </div>
+            <div className="mt-5 h-5 w-16 rounded-full bg-muted" />
+            <div className="mt-5 grid grid-cols-2 gap-4">
+              <div className="h-8 rounded bg-muted" />
+              <div className="h-8 rounded bg-muted" />
+              <div className="h-8 rounded bg-muted" />
+              <div className="h-8 rounded bg-muted" />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+//EMPTY STATE
+function DepartmentEmptyState({
+  hasFilters,
+  onClearFilters,
+  onAddDepartment,
+}: {
+  hasFilters: boolean;
+  onClearFilters: () => void;
+  onAddDepartment: () => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-dashed p-12 text-center">
+      <div
+        className="
+          mx-auto flex h-14 w-14
+          items-center justify-center
+          rounded-2xl
+          bg-primary/10
+          text-primary
+        "
+      >
+        <Building2 className="h-7 w-7" />
+      </div>
+      <h3 className="mt-4 text-base font-semibold">No departments found</h3>
+      <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
+        {hasFilters
+          ? "No departments match your current search or status filter."
+          : "Create your first department to start managing your hospital departments."}
+      </p>
+      <div className="mt-5 flex justify-center gap-2">
+        {hasFilters && (
+          <Button type="button" variant="outline" onClick={onClearFilters}>
+            Clear filters
+          </Button>
+        )}
+        {!hasFilters && (
+          <Button type="button" onClick={onAddDepartment} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Add Department
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+//DATE HELPERS
+function formatDate(value?: string) {
+  if (!value) {
+    return "—";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "—";
+  }
+  return date.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+function formatShortDate(value?: string) {
+  if (!value) {
+    return "—";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "—";
+  }
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+}
+//AXIOS ERROR HELPER
 function errorHasResponse(error: unknown): boolean {
   const axiosError = error as {
     response?: unknown;
   };
-
   return !!axiosError.response;
 }
