@@ -125,33 +125,27 @@ export default function DepartmentForm({ department, onSuccess, onCancel }: Depa
       // Permission error
       if (status === 403) {
         const message = backendMessage || "You don't have permission to perform this action.";
-
         setError(message);
         toast.error(message);
-
         return;
       }
-
       // Validation / bad request
       if (status === 400 || status === 422) {
         const message = backendMessage || "Please correct the highlighted fields.";
-
         setError(message);
         toast.error(message);
-
         return;
       }
-
-      // Conflict - duplicate department code etc.
+      // Conflict - duplicate department code
       if (status === 409) {
-        const message = backendMessage || "This department already exists.";
-
+        const message = backendMessage || "Department code already exists in this hospital.";
         setError(message);
-        toast.error(message);
-
+        setFieldErrors((current) => ({
+          ...current,
+          departmentCode: message,
+        }));
         return;
       }
-
       // Other backend/server errors
       const message = backendMessage || "Could not save the department. Please try again.";
 
@@ -254,7 +248,7 @@ export default function DepartmentForm({ department, onSuccess, onCancel }: Depa
           value={departmentCode}
           onChange={(event) => {
             setDepartmentCode(event.target.value);
-
+            setError("");
             if (fieldErrors.departmentCode) {
               setFieldErrors((current) => ({
                 ...current,
@@ -268,7 +262,6 @@ export default function DepartmentForm({ department, onSuccess, onCancel }: Depa
           aria-describedby={fieldErrors.departmentCode ? "departmentCode-error" : undefined}
           className={fieldErrors.departmentCode ? "border-red-500 focus-visible:ring-red-500" : ""}
         />
-
         {fieldErrors.departmentCode && (
           <p id="departmentCode-error" className="text-xs font-medium text-red-600">
             {fieldErrors.departmentCode}
