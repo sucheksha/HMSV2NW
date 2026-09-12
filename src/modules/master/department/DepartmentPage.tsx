@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { KpiCard } from "@/components/common/KpiCard/KpiCard";
 import {
   Activity,
   ArrowLeft,
   ArrowRight,
+  ArrowUp,
   Building2,
   CalendarDays,
   Check,
+  ChevronUp,
   Edit3,
   Filter,
   Loader2,
@@ -17,6 +20,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+
 import { toast } from "sonner";
 
 import {
@@ -56,15 +60,21 @@ export default function DepartmentPage() {
   // =========================================================
 
   const [filterOpen, setFilterOpen] = useState(false);
-
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
+
+  const filterRef = useRef<HTMLDivElement>(null);
+
+  // =========================================================
+  // SCROLL TO TOP
+  // =========================================================
+
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   // =========================================================
   // ADD / EDIT
   // =========================================================
 
   const [formOpen, setFormOpen] = useState(false);
-
   const [editDepartment, setEditDepartment] = useState<Department | null>(null);
 
   // =========================================================
@@ -73,12 +83,13 @@ export default function DepartmentPage() {
 
   const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null);
 
+  const [detailsLoadingId, setDetailsLoadingId] = useState<string | null>(null);
+
   // =========================================================
   // STATUS TOGGLE
   // =========================================================
 
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
-
   const [statusChanging, setStatusChanging] = useState(false);
 
   // =========================================================
@@ -151,12 +162,57 @@ export default function DepartmentPage() {
   }, []);
 
   // =========================================================
+  // SCROLL LISTENER
+  // =========================================================
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 450);
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+
+    handleScroll();
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, []);
+
+  const handleScrollToTop = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  };
+
+  // =========================================================
   // RESET PAGINATION
   // =========================================================
 
   useEffect(() => {
     setCurrentPage(1);
   }, [search, selectedFilters]);
+
+  // =========================================================
+  // FILTER OUTSIDE CLICK
+  // =========================================================
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (filterRef.current && !filterRef.current.contains(event.target as Node)) {
+        setFilterOpen(false);
+      }
+    };
+
+    if (filterOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [filterOpen]);
 
   // =========================================================
   // FILTER HELPERS
@@ -184,24 +240,19 @@ export default function DepartmentPage() {
     const searchText = search.toLowerCase().trim();
 
     const hasActiveFilter = selectedFilters.includes("ACTIVE");
-
     const hasInactiveFilter = selectedFilters.includes("INACTIVE");
 
     const hasStaffFilter = selectedFilters.includes("HAS_STAFF");
-
     const noStaffFilter = selectedFilters.includes("NO_STAFF");
 
     const hasFloorFilter = selectedFilters.includes("HAS_FLOOR");
-
     const hasRoomFilter = selectedFilters.includes("HAS_ROOM");
 
     return departments.filter((department) => {
-      // SEARCH
       const matchesSearch =
         department.departmentName?.toLowerCase().includes(searchText) ||
         department.departmentCode?.toLowerCase().includes(searchText);
 
-      // STATUS
       let matchesStatus = true;
 
       if (hasActiveFilter || hasInactiveFilter) {
@@ -210,7 +261,6 @@ export default function DepartmentPage() {
           (hasInactiveFilter && department.status === "INACTIVE");
       }
 
-      // STAFF
       let matchesStaff = true;
 
       if (hasStaffFilter || noStaffFilter) {
@@ -219,10 +269,8 @@ export default function DepartmentPage() {
         matchesStaff = (hasStaffFilter && staffCount > 0) || (noStaffFilter && staffCount === 0);
       }
 
-      // FLOOR
       const matchesFloor = !hasFloorFilter || !!department.floor?.trim();
 
-      // ROOM
       const matchesRoom = !hasRoomFilter || !!department.roomNumber?.trim();
 
       return matchesSearch && matchesStatus && matchesStaff && matchesFloor && matchesRoom;
@@ -275,7 +323,13 @@ export default function DepartmentPage() {
   // =========================================================
 
   const handleViewDetails = async (departmentId: string) => {
+    if (detailsLoadingId) {
+      return;
+    }
+
     try {
+      setDetailsLoadingId(departmentId);
+
       const department = await getDepartmentById(departmentId);
 
       setSelectedDepartment(department);
@@ -302,6 +356,8 @@ export default function DepartmentPage() {
           description: message,
         });
       }
+    } finally {
+      setDetailsLoadingId(null);
     }
   };
 
@@ -424,11 +480,19 @@ export default function DepartmentPage() {
   // =========================================================
 
   const handleStartSelection = () => {
+    if (deleting) {
+      return;
+    }
+
     setSelectionMode(true);
     setSelectedDepartmentIds([]);
   };
 
   const handleToggleSelection = (departmentId: string) => {
+    if (deleting) {
+      return;
+    }
+
     setSelectedDepartmentIds((current) => {
       if (current.includes(departmentId)) {
         return current.filter((id) => id !== departmentId);
@@ -439,6 +503,10 @@ export default function DepartmentPage() {
   };
 
   const handleSelectAll = () => {
+    if (deleting) {
+      return;
+    }
+
     const visibleIds = filteredDepartments.map((department) => department._id);
 
     const allSelected =
@@ -452,11 +520,11 @@ export default function DepartmentPage() {
     setSelectedDepartmentIds(visibleIds);
   };
 
-  const handleClearSelection = () => {
-    setSelectedDepartmentIds([]);
-  };
-
   const handleCancelSelection = () => {
+    if (deleting) {
+      return;
+    }
+
     setSelectionMode(false);
     setSelectedDepartmentIds([]);
     setDeleteError("");
@@ -467,7 +535,7 @@ export default function DepartmentPage() {
   // =========================================================
 
   const handleDeleteSelected = async () => {
-    if (selectedDepartmentIds.length === 0) {
+    if (selectedDepartmentIds.length === 0 || deleting) {
       return;
     }
 
@@ -534,7 +602,7 @@ export default function DepartmentPage() {
   // =========================================================
 
   return (
-    <div className="min-h-full space-y-7 p-6">
+    <div className="min-h-full space-y-7 p-4 sm:p-6">
       {/* =====================================================
           PAGE HEADER
       ====================================================== */}
@@ -550,6 +618,7 @@ export default function DepartmentPage() {
               bg-blue-50
               text-blue-600
             "
+            aria-hidden="true"
           >
             <Building2 className="h-5 w-5" />
           </div>
@@ -577,7 +646,7 @@ export default function DepartmentPage() {
           rounded-2xl
           border
           bg-card
-          p-4
+          p-3 sm:p-4
           shadow-sm
         "
       >
@@ -591,10 +660,10 @@ export default function DepartmentPage() {
         >
           {/* SEARCH + FILTER */}
 
-          <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="flex w-full flex-col gap-3 sm:flex-row">
             {/* SEARCH */}
 
-            <div className="relative w-full sm:w-[390px]">
+            <div className="relative w-full sm:max-w-[390px]">
               <Search
                 className="
                   pointer-events-none
@@ -603,6 +672,7 @@ export default function DepartmentPage() {
                   -translate-y-1/2
                   text-blue-500
                 "
+                aria-hidden="true"
               />
 
               <Input
@@ -616,7 +686,7 @@ export default function DepartmentPage() {
                   pl-9 pr-9
                   focus-visible:ring-blue-400
                 "
-                aria-label="Search departments"
+                aria-label="Search departments by name or code"
               />
 
               {search && (
@@ -632,8 +702,12 @@ export default function DepartmentPage() {
                     text-muted-foreground
                     hover:bg-blue-100
                     hover:text-foreground
+                    focus-visible:outline-none
+                    focus-visible:ring-2
+                    focus-visible:ring-primary
                   "
-                  aria-label="Clear search"
+                  aria-label="Clear department search"
+                  title="Clear search"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -642,7 +716,7 @@ export default function DepartmentPage() {
 
             {/* FILTER */}
 
-            <div className="relative">
+            <div ref={filterRef} className="relative">
               <Button
                 type="button"
                 variant="outline"
@@ -655,8 +729,10 @@ export default function DepartmentPage() {
                   border-blue-100
                   bg-blue-50/30
                 "
+                aria-expanded={filterOpen}
+                aria-haspopup="menu"
               >
-                <Filter className="h-4 w-4" />
+                <Filter className="h-4 w-4" aria-hidden="true" />
                 Filter
                 {selectedFilters.length > 0 && (
                   <span
@@ -670,6 +746,7 @@ export default function DepartmentPage() {
                       font-semibold
                       text-primary-foreground
                     "
+                    aria-label={`${selectedFilters.length} filters selected`}
                   >
                     {selectedFilters.length}
                   </span>
@@ -681,29 +758,42 @@ export default function DepartmentPage() {
                   className="
                     absolute left-0 top-12 z-50
                     w-[270px]
+                    max-w-[calc(100vw-2rem)]
                     rounded-xl
                     border
                     bg-background
                     p-3
                     shadow-xl
                   "
+                  role="menu"
+                  aria-label="Department filters"
                 >
-                  <div className="flex items-center justify-between border-b pb-3">
+                  <div className="flex items-start justify-between border-b pb-3">
                     <div>
                       <p className="text-sm font-semibold">Filter departments</p>
 
                       <p className="text-xs text-muted-foreground">Select one or more options</p>
                     </div>
 
-                    {selectedFilters.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={clearFilters}
-                        className="text-xs font-medium text-primary hover:underline"
-                      >
-                        Clear
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => setFilterOpen(false)}
+                      className="
+                        flex h-7 w-7
+                        items-center justify-center
+                        rounded-md
+                        text-muted-foreground
+                        hover:bg-muted
+                        hover:text-foreground
+                        focus-visible:outline-none
+                        focus-visible:ring-2
+                        focus-visible:ring-primary
+                      "
+                      aria-label="Close filter menu"
+                      title="Close filter menu"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
                   </div>
 
                   {/* STATUS */}
@@ -783,21 +873,26 @@ export default function DepartmentPage() {
 
           {/* ACTION BUTTONS */}
 
-          <div className="flex items-center gap-2">
+          <div className="flex w-full items-center gap-2 xl:w-auto">
             <Button
               type="button"
               variant="outline"
               onClick={handleStartSelection}
+              disabled={selectionMode || deleting}
               className="gap-2"
+              aria-label="Select departments for deletion"
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="h-4 w-4" aria-hidden="true" />
               Delete
             </Button>
 
-            {/* ADD ALWAYS REMAINS VISIBLE */}
-
-            <Button type="button" onClick={handleAddDepartment} className="gap-2 shadow-sm">
-              <Plus className="h-4 w-4" />
+            <Button
+              type="button"
+              onClick={handleAddDepartment}
+              disabled={deleting}
+              className="gap-2 shadow-sm"
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" />
               Add Department
             </Button>
           </div>
@@ -827,7 +922,7 @@ export default function DepartmentPage() {
                 px-3 py-2
               "
             >
-              <Trash2 className="h-4 w-4 text-muted-foreground" />
+              <Trash2 className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
 
               <span className="text-sm font-medium">{selectedDepartmentIds.length} selected</span>
             </div>
@@ -837,10 +932,10 @@ export default function DepartmentPage() {
               variant="outline"
               size="sm"
               onClick={handleSelectAll}
-              disabled={filteredDepartments.length === 0}
+              disabled={filteredDepartments.length === 0 || deleting}
               className="gap-1.5"
             >
-              <Check className="h-3.5 w-3.5" />
+              <Check className="h-3.5 w-3.5" aria-hidden="true" />
 
               {filteredDepartments.length > 0 &&
               filteredDepartments.every((department) =>
@@ -850,25 +945,47 @@ export default function DepartmentPage() {
                 : "Select all"}
             </Button>
 
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={handleClearSelection}
-              disabled={selectedDepartmentIds.length === 0}
-            >
-              Clear selection
-            </Button>
+            {selectedDepartmentIds.length > 0 && (
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                onClick={() => setDeleteDialogOpen(true)}
+                disabled={deleting}
+                className="gap-1.5"
+              >
+                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                Delete selected
+              </Button>
+            )}
 
-            <Button
+            <button
               type="button"
-              variant="ghost"
-              size="sm"
               onClick={handleCancelSelection}
               disabled={deleting}
+              className="
+                ml-auto
+                flex h-9 w-9
+                items-center justify-center
+                rounded-lg
+                border
+                border-slate-300
+                bg-white
+                text-slate-600
+                transition-colors
+                hover:bg-slate-100
+                hover:text-slate-900
+                disabled:cursor-not-allowed
+                disabled:opacity-50
+                focus-visible:outline-none
+                focus-visible:ring-2
+                focus-visible:ring-primary
+              "
+              aria-label="Cancel delete selection"
+              title="Cancel delete selection"
             >
-              Cancel
-            </Button>
+              <X className="h-4 w-4" />
+            </button>
           </div>
         )}
 
@@ -899,6 +1016,202 @@ export default function DepartmentPage() {
           </div>
         )}
       </div>
+
+      {/* =====================================================
+          MAIN CONTENT
+      ====================================================== */}
+
+      {loading ? (
+        <>
+          <DepartmentKpiLoadingState />
+          <DepartmentLoadingState />
+        </>
+      ) : loadError ? (
+        <DepartmentErrorState
+          message={loadError}
+          onRetry={() => {
+            void loadDepartments();
+          }}
+        />
+      ) : (
+        <>
+          {/* KPI CARDS */}
+
+          <div
+            className="
+              grid grid-cols-1 gap-4
+              sm:grid-cols-2
+              xl:grid-cols-4
+            "
+          >
+            <KpiCard
+              title="Total Departments"
+              value={totalDepartments}
+              description="All departments"
+              icon={Building2}
+              className="bg-blue-50/70 border-blue-100"
+              iconClassName="bg-blue-100 text-blue-700"
+            />
+
+            <KpiCard
+              title="Active Departments"
+              value={activeDepartments}
+              description="Currently operational"
+              icon={Activity}
+              className="bg-green-50/70 border-green-100"
+              iconClassName="bg-green-100 text-green-700"
+            />
+
+            <KpiCard
+              title="Inactive Departments"
+              value={inactiveDepartments}
+              description="Currently inactive"
+              icon={ToggleLeft}
+              className="bg-slate-50/80 border-slate-200"
+              iconClassName="bg-slate-100 text-slate-600"
+            />
+
+            <KpiCard
+              title="Total Staff"
+              value={totalStaff}
+              description="Across all departments"
+              icon={Users}
+              className="bg-violet-50/70 border-violet-100"
+              iconClassName="bg-violet-100 text-violet-700"
+            />
+          </div>
+
+          {/* DIRECTORY HEADER */}
+
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-sm font-semibold">Department Directory</h2>
+
+              <p className="text-xs text-muted-foreground">
+                {filteredDepartments.length}{" "}
+                {filteredDepartments.length === 1 ? "department" : "departments"} shown
+              </p>
+            </div>
+
+            {selectionMode && (
+              <p className="text-xs text-muted-foreground">Select departments to delete</p>
+            )}
+          </div>
+
+          {/* CARDS */}
+
+          {filteredDepartments.length === 0 ? (
+            <DepartmentEmptyState
+              hasFilters={!!search || selectedFilters.length > 0}
+              onClearFilters={() => {
+                setSearch("");
+                clearFilters();
+              }}
+              onAddDepartment={handleAddDepartment}
+            />
+          ) : (
+            <>
+              <div
+                className="
+                  grid grid-cols-1 gap-5
+                  sm:grid-cols-2
+                  xl:grid-cols-3
+                  2xl:grid-cols-4
+                "
+              >
+                {paginatedDepartments.map((department) => (
+                  <DepartmentCard
+                    key={department._id}
+                    department={department}
+                    selectionMode={selectionMode}
+                    selected={selectedDepartmentIds.includes(department._id)}
+                    onSelect={() => handleToggleSelection(department._id)}
+                    onViewDetails={() => void handleViewDetails(department._id)}
+                    detailsLoading={detailsLoadingId === department._id}
+                  />
+                ))}
+              </div>
+
+              {/* PAGINATION */}
+
+              {totalPages > 1 && (
+                <div
+                  className="
+                    flex flex-col
+                    items-center
+                    justify-between
+                    gap-3
+                    rounded-xl
+                    border
+                    bg-card
+                    px-4 py-3
+                    sm:flex-row
+                  "
+                >
+                  <p className="text-sm text-muted-foreground">
+                    Showing{" "}
+                    <span className="font-medium text-foreground">
+                      {startIndex + 1}–
+                      {Math.min(startIndex + departmentsPerPage, filteredDepartments.length)}
+                    </span>{" "}
+                    of{" "}
+                    <span className="font-medium text-foreground">
+                      {filteredDepartments.length}
+                    </span>
+                  </p>
+
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={currentPage === 1}
+                      onClick={() => setCurrentPage((page) => page - 1)}
+                      className="gap-1"
+                      aria-label="Go to previous page"
+                    >
+                      <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+                      Previous
+                    </Button>
+
+                    <div className="flex items-center gap-1" aria-label="Department pages">
+                      {Array.from(
+                        {
+                          length: totalPages,
+                        },
+                        (_, index) => index + 1,
+                      ).map((page) => (
+                        <Button
+                          key={page}
+                          variant={currentPage === page ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setCurrentPage(page)}
+                          className="h-8 w-8 p-0"
+                          aria-label={`Go to page ${page}`}
+                          aria-current={currentPage === page ? "page" : undefined}
+                        >
+                          {page}
+                        </Button>
+                      ))}
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={currentPage === totalPages}
+                      onClick={() => setCurrentPage((page) => page + 1)}
+                      className="gap-1"
+                      aria-label="Go to next page"
+                    >
+                      Next
+                      <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </>
+      )}
 
       {/* =====================================================
           ADD / EDIT DIALOG
@@ -967,6 +1280,7 @@ export default function DepartmentPage() {
                         bg-primary/10
                         text-primary
                       "
+                      aria-hidden="true"
                     >
                       <Building2 className="h-6 w-6" />
                     </div>
@@ -1004,6 +1318,7 @@ export default function DepartmentPage() {
                               : "bg-muted text-muted-foreground"
                           }
                         `}
+                        aria-hidden="true"
                       >
                         <ToggleLeft className="h-5 w-5" />
                       </div>
@@ -1021,6 +1336,7 @@ export default function DepartmentPage() {
                       type="button"
                       role="switch"
                       aria-checked={selectedDepartment.status === "ACTIVE"}
+                      aria-label="Toggle department status"
                       disabled={statusChanging}
                       onClick={handleStatusToggleRequest}
                       className={`
@@ -1030,6 +1346,9 @@ export default function DepartmentPage() {
                         rounded-full
                         transition-all
                         disabled:opacity-60
+                        focus-visible:outline-none
+                        focus-visible:ring-2
+                        focus-visible:ring-primary
                         ${
                           selectedDepartment.status === "ACTIVE"
                             ? "bg-green-600"
@@ -1106,7 +1425,7 @@ export default function DepartmentPage() {
                   disabled={statusChanging}
                   className="gap-2"
                 >
-                  <Edit3 className="h-4 w-4" />
+                  <Edit3 className="h-4 w-4" aria-hidden="true" />
                   Edit Department
                 </Button>
               </div>
@@ -1274,7 +1593,7 @@ export default function DepartmentPage() {
                 type="button"
                 variant="destructive"
                 onClick={handleDeleteSelected}
-                disabled={deleting}
+                disabled={deleting || selectedDepartmentIds.length === 0}
                 className="gap-2"
               >
                 {deleting ? (
@@ -1295,200 +1614,42 @@ export default function DepartmentPage() {
       </Dialog>
 
       {/* =====================================================
-          MAIN CONTENT
+          PAGE UP BUTTON
       ====================================================== */}
 
-      {loading ? (
-        <>
-          <DepartmentKpiLoadingState />
-          <DepartmentLoadingState />
-        </>
-      ) : loadError ? (
-        <DepartmentErrorState
-          message={loadError}
-          onRetry={() => {
-            void loadDepartments();
-          }}
-        />
-      ) : (
-        <>
-          {/* =================================================
-              KPI CARDS
-          ================================================== */}
-
-          <div
-            className="
-              grid grid-cols-1 gap-4
-              sm:grid-cols-2
-              xl:grid-cols-4
-            "
-          >
-            <KpiCard
-              title="Total Departments"
-              value={totalDepartments}
-              description="All departments"
-              icon={Building2}
-              className="bg-blue-50/70 border-blue-100"
-              iconClassName="bg-blue-100 text-blue-700"
-            />
-
-            <KpiCard
-              title="Active Departments"
-              value={activeDepartments}
-              description="Currently operational"
-              icon={Activity}
-              className="bg-green-50/70 border-green-100"
-              iconClassName="bg-green-100 text-green-700"
-            />
-
-            <KpiCard
-              title="Inactive Departments"
-              value={inactiveDepartments}
-              description="Currently inactive"
-              icon={ToggleLeft}
-              className="bg-slate-50/80 border-slate-200"
-              iconClassName="bg-slate-100 text-slate-600"
-            />
-
-            <KpiCard
-              title="Total Staff"
-              value={totalStaff}
-              description="Across all departments"
-              icon={Users}
-              className="bg-violet-50/70 border-violet-100"
-              iconClassName="bg-violet-100 text-violet-700"
-            />
-          </div>
-
-          {/* =================================================
-              DIRECTORY HEADER
-          ================================================== */}
-
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-sm font-semibold">Department Directory</h2>
-
-              <p className="text-xs text-muted-foreground">
-                {filteredDepartments.length}{" "}
-                {filteredDepartments.length === 1 ? "department" : "departments"} shown
-              </p>
-            </div>
-
-            {selectionMode && (
-              <p className="text-xs text-muted-foreground">Select departments to delete</p>
-            )}
-          </div>
-
-          {/* =================================================
-              CARDS
-          ================================================== */}
-
-          {filteredDepartments.length === 0 ? (
-            <DepartmentEmptyState
-              hasFilters={!!search || selectedFilters.length > 0}
-              onClearFilters={() => {
-                setSearch("");
-                clearFilters();
-              }}
-              onAddDepartment={handleAddDepartment}
-            />
-          ) : (
-            <>
-              <div
-                className="
-                  grid grid-cols-1 gap-5
-                  sm:grid-cols-2
-                  xl:grid-cols-3
-                  2xl:grid-cols-4
-                "
-              >
-                {paginatedDepartments.map((department) => (
-                  <DepartmentCard
-                    key={department._id}
-                    department={department}
-                    selectionMode={selectionMode}
-                    selected={selectedDepartmentIds.includes(department._id)}
-                    onSelect={() => handleToggleSelection(department._id)}
-                    onViewDetails={() => void handleViewDetails(department._id)}
-                  />
-                ))}
-              </div>
-
-              {/* PAGINATION */}
-
-              {totalPages > 1 && (
-                <div
-                  className="
-                    flex flex-col
-                    items-center
-                    justify-between
-                    gap-3
-                    rounded-xl
-                    border
-                    bg-card
-                    px-4 py-3
-                    sm:flex-row
-                  "
-                >
-                  <p className="text-sm text-muted-foreground">
-                    Showing{" "}
-                    <span className="font-medium text-foreground">
-                      {startIndex + 1}–
-                      {Math.min(startIndex + departmentsPerPage, filteredDepartments.length)}
-                    </span>{" "}
-                    of{" "}
-                    <span className="font-medium text-foreground">
-                      {filteredDepartments.length}
-                    </span>
-                  </p>
-
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={currentPage === 1}
-                      onClick={() => setCurrentPage((page) => page - 1)}
-                      className="gap-1"
-                    >
-                      <ArrowLeft className="h-3.5 w-3.5" />
-                      Previous
-                    </Button>
-
-                    <div className="flex items-center gap-1">
-                      {Array.from(
-                        {
-                          length: totalPages,
-                        },
-                        (_, index) => index + 1,
-                      ).map((page) => (
-                        <Button
-                          key={page}
-                          variant={currentPage === page ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => setCurrentPage(page)}
-                          className="h-8 w-8 p-0"
-                        >
-                          {page}
-                        </Button>
-                      ))}
-                    </div>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={currentPage === totalPages}
-                      onClick={() => setCurrentPage((page) => page + 1)}
-                      className="gap-1"
-                    >
-                      Next
-                      <ArrowRight className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </>
+      {showScrollTop && (
+        <button
+          type="button"
+          onClick={handleScrollToTop}
+          className="
+            fixed
+            bottom-5 right-5
+            z-40
+            flex h-11 w-11
+            items-center justify-center
+            rounded-full
+            border
+            border-slate-200
+            bg-white
+            text-slate-700
+            shadow-lg
+            transition-all
+            duration-200
+            hover:-translate-y-0.5
+            hover:bg-slate-50
+            hover:shadow-xl
+            focus-visible:outline-none
+            focus-visible:ring-2
+            focus-visible:ring-primary
+            focus-visible:ring-offset-2
+            sm:bottom-7
+            sm:right-7
+          "
+          aria-label="Scroll to top of page"
+          title="Back to top"
+        >
+          <ChevronUp className="h-5 w-5" aria-hidden="true" />
+        </button>
       )}
     </div>
   );
@@ -1519,7 +1680,12 @@ function FilterCheckbox({
         text-left
         text-sm
         hover:bg-muted/60
+        focus-visible:outline-none
+        focus-visible:ring-2
+        focus-visible:ring-primary
       "
+      role="menuitemcheckbox"
+      aria-checked={checked}
     >
       <span
         className={`
@@ -1534,6 +1700,7 @@ function FilterCheckbox({
               : "border-slate-700 bg-white"
           }
         `}
+        aria-hidden="true"
       >
         {checked && <Check className="h-3 w-3" />}
       </span>
@@ -1563,10 +1730,15 @@ function FilterBadge({ label, onRemove }: { label: string; onRemove: () => void 
         font-medium
         text-blue-700
         hover:bg-blue-100
+        focus-visible:outline-none
+        focus-visible:ring-2
+        focus-visible:ring-primary
       "
+      aria-label={`Remove ${label} filter`}
     >
       {label}
-      <X className="h-3 w-3" />
+
+      <X className="h-3 w-3" aria-hidden="true" />
     </button>
   );
 }
@@ -1601,70 +1773,6 @@ function getFilterLabel(filter: string) {
 }
 
 /* =========================================================
-   KPI CARD
-========================================================= */
-
-interface KpiCardProps {
-  title: string;
-  value: number;
-  description: string;
-  icon: typeof Building2;
-  className: string;
-  iconClassName: string;
-}
-
-function KpiCard({
-  title,
-  value,
-  description,
-  icon: Icon,
-  className,
-  iconClassName,
-}: KpiCardProps) {
-  return (
-    <div
-      className={`
-        group
-        rounded-2xl
-        border
-        p-5
-        shadow-sm
-        transition-all
-        duration-200
-        hover:-translate-y-0.5
-        hover:shadow-md
-        ${className}
-      `}
-    >
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-sm font-medium text-muted-foreground">{title}</p>
-
-          <p className="mt-2 text-3xl font-semibold tracking-tight">{value}</p>
-
-          <p className="mt-1 text-xs text-muted-foreground">{description}</p>
-        </div>
-
-        <div
-          className={`
-            flex h-11 w-11
-            shrink-0
-            items-center justify-center
-            rounded-xl
-            transition-transform
-            duration-200
-            group-hover:scale-105
-            ${iconClassName}
-          `}
-        >
-          <Icon className="h-5 w-5" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* =========================================================
    DEPARTMENT CARD
 ========================================================= */
 
@@ -1674,6 +1782,7 @@ interface DepartmentCardProps {
   selected: boolean;
   onSelect: () => void;
   onViewDetails: () => void;
+  detailsLoading: boolean;
 }
 
 function DepartmentCard({
@@ -1682,6 +1791,7 @@ function DepartmentCard({
   selected,
   onSelect,
   onViewDetails,
+  detailsLoading,
 }: DepartmentCardProps) {
   const isActive = department.status === "ACTIVE";
 
@@ -1705,6 +1815,7 @@ function DepartmentCard({
           h-1 w-full
           ${isActive ? "bg-green-500" : "bg-muted-foreground/30"}
         `}
+        aria-hidden="true"
       />
 
       <div className="flex items-start justify-between gap-3 p-5 pb-3">
@@ -1717,6 +1828,7 @@ function DepartmentCard({
               bg-blue-50
               text-blue-600
             "
+            aria-hidden="true"
           >
             <Building2 className="h-5 w-5" />
           </div>
@@ -1742,14 +1854,18 @@ function DepartmentCard({
               rounded
               border
               transition-colors
+              focus-visible:outline-none
+              focus-visible:ring-2
+              focus-visible:ring-primary
               ${
                 selected
                   ? "border-primary bg-primary text-white"
                   : "border-slate-800 bg-white hover:bg-slate-100"
               }
             `}
+            role="checkbox"
+            aria-checked={selected}
             aria-label={`Select ${department.departmentName}`}
-            aria-pressed={selected}
           >
             {selected && <Check className="h-3.5 w-3.5" />}
           </button>
@@ -1772,6 +1888,7 @@ function DepartmentCard({
               h-1.5 w-1.5 rounded-full
               ${isActive ? "bg-green-600" : "bg-muted-foreground"}
             `}
+            aria-hidden="true"
           />
 
           {isActive ? "Active" : "Inactive"}
@@ -1814,10 +1931,25 @@ function DepartmentCard({
             hover:text-primary
           "
           onClick={onViewDetails}
-          disabled={selectionMode}
+          disabled={selectionMode || detailsLoading}
+          aria-label={`View details for ${department.departmentName}`}
         >
-          View details
-          <span className="transition-transform duration-200 group-hover:translate-x-1">→</span>
+          {detailsLoading ? (
+            <>
+              Loading details...
+              <Loader2 className="h-4 w-4 animate-spin" />
+            </>
+          ) : (
+            <>
+              View details
+              <span
+                className="transition-transform duration-200 group-hover:translate-x-1"
+                aria-hidden="true"
+              >
+                →
+              </span>
+            </>
+          )}
         </Button>
       </div>
     </div>
@@ -1840,7 +1972,7 @@ function DetailItem({
   return (
     <div className="rounded-xl border bg-muted/20 p-3">
       <div className="flex items-center gap-2">
-        <Icon className="h-4 w-4 text-muted-foreground" />
+        <Icon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
 
         <span className="text-xs text-muted-foreground">{label}</span>
       </div>
@@ -1866,7 +1998,8 @@ function MiniDetail({
   return (
     <div className="min-w-0 rounded-lg p-1">
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <Icon className="h-3.5 w-3.5" />
+        <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+
         <span>{label}</span>
       </div>
 
@@ -2022,50 +2155,39 @@ function DepartmentEmptyState({
 /* =========================================================
    DATE HELPERS
 ========================================================= */
-
 function formatDate(value?: string) {
   if (!value) {
     return "—";
   }
-
   const date = new Date(value);
-
   if (Number.isNaN(date.getTime())) {
     return "—";
   }
-
   return date.toLocaleDateString(undefined, {
     year: "numeric",
     month: "short",
     day: "numeric",
   });
 }
-
 function formatShortDate(value?: string) {
   if (!value) {
     return "—";
   }
-
   const date = new Date(value);
-
   if (Number.isNaN(date.getTime())) {
     return "—";
   }
-
   return date.toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
   });
 }
-
 /* =========================================================
    ERROR HELPER
 ========================================================= */
-
 function errorHasResponse(error: unknown): boolean {
   const axiosError = error as {
     response?: unknown;
   };
-
   return !!axiosError.response;
 }
