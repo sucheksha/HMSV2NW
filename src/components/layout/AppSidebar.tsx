@@ -110,11 +110,6 @@ const ADMIN_NAV: NavGroup[] = [
         to: "/module/medicines",
         icon: PackageSearch,
       },
-      {
-        label: "Diagnosis",
-        to: "/module/diagnosis",
-        icon: ClipboardList,
-      },
     ],
   },
   {
@@ -159,6 +154,11 @@ const ADMIN_NAV: NavGroup[] = [
         label: "Department",
         to: "/module/departments",
         icon: Hospital,
+      },
+      {
+        label: "Diagnosis",
+        to: "/module/diagnosis",
+        icon: ClipboardList,
       },
       {
         label: "Roles",
