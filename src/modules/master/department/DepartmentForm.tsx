@@ -1,23 +1,19 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-
 import { createDepartment, updateDepartment } from "./department.service";
-
 import type { Department } from "./department.types";
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useFormDirty } from "@/hooks/useFormDirty";
 
 interface DepartmentFormProps {
   department?: Department | null;
   onSuccess: () => void;
   onCancel: () => void;
 }
-
 export default function DepartmentForm({ department, onSuccess, onCancel }: DepartmentFormProps) {
   const isEditMode = !!department;
-
   const [departmentName, setDepartmentName] = useState("");
   const [departmentCode, setDepartmentCode] = useState("");
   const [staffCount, setStaffCount] = useState("");
@@ -25,7 +21,6 @@ export default function DepartmentForm({ department, onSuccess, onCancel }: Depa
   const [roomNumber, setRoomNumber] = useState("");
   const [departmentHead, setDepartmentHead] = useState("");
   const [description, setDescription] = useState("");
-
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<{
@@ -38,13 +33,11 @@ export default function DepartmentForm({ department, onSuccess, onCancel }: Depa
     if (department) {
       setDepartmentName(department.departmentName || "");
       setDepartmentCode(department.departmentCode || "");
-
       setStaffCount(
         department.staffCount !== undefined && department.staffCount !== null
           ? String(department.staffCount)
           : "",
       );
-
       setFloor(department.floor || "");
       setRoomNumber(department.roomNumber || "");
       setDepartmentHead(department.departmentHead || "");
@@ -63,18 +56,35 @@ export default function DepartmentForm({ department, onSuccess, onCancel }: Depa
     setError("");
     setFieldErrors({});
   }, [department]);
-
-  /**
-   * Performs the actual create/update operation.
-   *
-   * This is kept separate from handleSubmit so that
-   * the Retry button can call the operation again.
-   */
+  // Initial form values
+  const initialFormData = {
+    departmentName: department?.departmentName ?? "",
+    departmentCode: department?.departmentCode ?? "",
+    staffCount:
+      department?.staffCount !== undefined && department?.staffCount !== null
+        ? String(department.staffCount)
+        : "",
+    floor: department?.floor ?? "",
+    roomNumber: department?.roomNumber ?? "",
+    departmentHead: department?.departmentHead ?? "",
+    description: department?.description ?? "",
+  };
+  // Current form values
+  const currentFormData = {
+    departmentName,
+    departmentCode,
+    staffCount,
+    floor,
+    roomNumber,
+    departmentHead,
+    description,
+  };
+  const isDirty = useFormDirty(initialFormData, currentFormData);
+  // Performs the actual create/update operation.This is kept separate from handleSubmit so that the Retry button can call the operation again.
   const saveDepartment = async () => {
     try {
       setSaving(true);
       setError("");
-
       const data = {
         departmentName: departmentName.trim(),
         departmentCode: departmentCode.trim(),
@@ -98,17 +108,13 @@ export default function DepartmentForm({ department, onSuccess, onCancel }: Depa
       onSuccess();
     } catch (error: any) {
       console.error("Failed to save department:", error);
-
       const status = error?.response?.status;
       const backendMessage = error?.response?.data?.message;
-
       // Network error
       if (!error?.response) {
         const message =
           "Unable to connect to the server. Please check your network connection and try again.";
-
         setError(message);
-
         toast.error("Unable to connect to the server.", {
           description: "Please check your network connection and try again.",
           action: {
@@ -118,10 +124,8 @@ export default function DepartmentForm({ department, onSuccess, onCancel }: Depa
             },
           },
         });
-
         return;
       }
-
       // Permission error
       if (status === 403) {
         const message = backendMessage || "You don't have permission to perform this action.";
@@ -139,11 +143,14 @@ export default function DepartmentForm({ department, onSuccess, onCancel }: Depa
       // Conflict - duplicate department code
       if (status === 409) {
         const message = backendMessage || "Department code already exists in this hospital.";
+
         setError(message);
+
         setFieldErrors((current) => ({
           ...current,
           departmentCode: message,
         }));
+
         return;
       }
       // Other backend/server errors
@@ -161,49 +168,38 @@ export default function DepartmentForm({ department, onSuccess, onCancel }: Depa
       setSaving(false);
     }
   };
-
-  /**
-   * Handles form submission.
-   *
-   * handleSubmit remains the function used by
-   * <form onSubmit={handleSubmit}>.
-   */
+  // Handles form submission.
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-
     setError("");
-
+    // Prevent unnecessary update/create when nothing changed
+    if (!isDirty) {
+      return;
+    }
     const errors: {
       departmentName?: string;
       departmentCode?: string;
       staffCount?: string;
     } = {};
-
     // Department Name
     if (!departmentName.trim()) {
       errors.departmentName = "Department name is required.";
     }
-
     // Department Code
     if (!departmentCode.trim()) {
       errors.departmentCode = "Department code is required.";
     }
-
     // Staff Count
     if (staffCount && Number(staffCount) < 0) {
       errors.staffCount = "Number of staff cannot be negative.";
     }
-
     setFieldErrors(errors);
-
     // Stop submission if validation failed
     if (Object.keys(errors).length > 0) {
       return;
     }
-
     await saveDepartment();
   };
-
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* NAME */}
@@ -230,14 +226,12 @@ export default function DepartmentForm({ department, onSuccess, onCancel }: Depa
           aria-describedby={fieldErrors.departmentName ? "departmentName-error" : undefined}
           className={fieldErrors.departmentName ? "border-red-500 focus-visible:ring-red-500" : ""}
         />
-
         {fieldErrors.departmentName && (
           <p id="departmentName-error" className="text-xs font-medium text-red-600">
             {fieldErrors.departmentName}
           </p>
         )}
       </div>
-
       {/* CODE */}
       <div className="space-y-1.5">
         <Label htmlFor="departmentCode">
@@ -249,6 +243,7 @@ export default function DepartmentForm({ department, onSuccess, onCancel }: Depa
           onChange={(event) => {
             setDepartmentCode(event.target.value);
             setError("");
+
             if (fieldErrors.departmentCode) {
               setFieldErrors((current) => ({
                 ...current,
@@ -268,7 +263,6 @@ export default function DepartmentForm({ department, onSuccess, onCancel }: Depa
           </p>
         )}
       </div>
-
       {/* STAFF COUNT */}
       <div className="space-y-1.5">
         <Label htmlFor="staffCount">
@@ -295,21 +289,18 @@ export default function DepartmentForm({ department, onSuccess, onCancel }: Depa
           aria-describedby={fieldErrors.staffCount ? "staffCount-error" : undefined}
           className={fieldErrors.staffCount ? "border-red-500 focus-visible:ring-red-500" : ""}
         />
-
         {fieldErrors.staffCount && (
           <p id="staffCount-error" className="text-xs font-medium text-red-600">
             {fieldErrors.staffCount}
           </p>
         )}
       </div>
-
       {/* FLOOR + ROOM */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor="floor">
             Floor <span className="text-muted-foreground">(Optional)</span>
           </Label>
-
           <Input
             id="floor"
             value={floor}
@@ -318,12 +309,10 @@ export default function DepartmentForm({ department, onSuccess, onCancel }: Depa
             disabled={saving}
           />
         </div>
-
         <div className="space-y-1.5">
           <Label htmlFor="roomNumber">
             Room Number <span className="text-muted-foreground">(Optional)</span>
           </Label>
-
           <Input
             id="roomNumber"
             value={roomNumber}
@@ -333,13 +322,11 @@ export default function DepartmentForm({ department, onSuccess, onCancel }: Depa
           />
         </div>
       </div>
-
       {/* DEPARTMENT HEAD */}
       <div className="space-y-1.5">
         <Label htmlFor="departmentHead">
           Department Head <span className="text-muted-foreground">(Optional)</span>
         </Label>
-
         <Input
           id="departmentHead"
           value={departmentHead}
@@ -348,13 +335,11 @@ export default function DepartmentForm({ department, onSuccess, onCancel }: Depa
           disabled={saving}
         />
       </div>
-
       {/* DESCRIPTION */}
       <div className="space-y-1.5">
         <Label htmlFor="description">
           Description <span className="text-muted-foreground">(Optional)</span>
         </Label>
-
         <textarea
           id="description"
           value={description}
@@ -376,7 +361,6 @@ export default function DepartmentForm({ department, onSuccess, onCancel }: Depa
           "
         />
       </div>
-
       {/* ERROR */}
       {error && (
         <div
@@ -389,7 +373,6 @@ export default function DepartmentForm({ department, onSuccess, onCancel }: Depa
           {error}
         </div>
       )}
-
       {/* ACTIONS */}
       <div
         className="
@@ -400,8 +383,7 @@ export default function DepartmentForm({ department, onSuccess, onCancel }: Depa
         <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>
           Cancel
         </Button>
-
-        <Button type="submit" disabled={saving}>
+        <Button type="submit" disabled={saving || !isDirty}>
           {saving ? "Saving..." : isEditMode ? "Update Department" : "Save Department"}
         </Button>
       </div>

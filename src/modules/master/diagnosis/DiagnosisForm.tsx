@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
+import { useFormDirty } from "@/hooks/useFormDirty";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -70,6 +72,34 @@ export function DiagnosisForm({ diagnosis, onSuccess, onCancel }: DiagnosisFormP
 
   const [errors, setErrors] = useState<FormErrors>({});
   const [saving, setSaving] = useState(false);
+
+  /*
+   * The form is considered dirty when the user changes
+   * any field from its original value.
+   */
+  const initialFormData = {
+    diagnosisName: diagnosis?.diagnosisName ?? "",
+    diagnosisCode: diagnosis?.diagnosisCode ?? "",
+    diagnosisCategory: diagnosis?.diagnosisCategory ?? "",
+    diagnosisType: diagnosis?.diagnosisType ?? "",
+    icdCode: diagnosis?.icdCode ?? "",
+    icdVersion: diagnosis?.icdVersion ?? "",
+    shortName: diagnosis?.shortName ?? "",
+    description: diagnosis?.description ?? "",
+  };
+
+  const currentFormData = {
+    diagnosisName,
+    diagnosisCode,
+    diagnosisCategory,
+    diagnosisType,
+    icdCode,
+    icdVersion,
+    shortName,
+    description,
+  };
+
+  const isDirty = useFormDirty(initialFormData, currentFormData);
 
   useEffect(() => {
     if (diagnosis) {
@@ -149,6 +179,10 @@ export function DiagnosisForm({ diagnosis, onSuccess, onCancel }: DiagnosisFormP
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
+    if (!isDirty) {
+      return;
+    }
+
     if (!validateForm()) {
       return;
     }
@@ -203,14 +237,17 @@ export function DiagnosisForm({ diagnosis, onSuccess, onCancel }: DiagnosisFormP
 
         if (response?.status === 409) {
           toast.error("Diagnosis code already exists in this hospital.");
+
           setErrors({
             diagnosisCode: "This diagnosis code already exists.",
           });
+
           return;
         }
 
         if (response?.status === 403) {
           toast.error("You do not have permission to manage diagnoses.");
+
           return;
         }
 
@@ -377,7 +414,7 @@ export function DiagnosisForm({ diagnosis, onSuccess, onCancel }: DiagnosisFormP
           Cancel
         </Button>
 
-        <Button type="submit" disabled={saving}>
+        <Button type="submit" disabled={saving || !isDirty}>
           {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
 
           {isEditMode ? "Update Diagnosis" : "Save Diagnosis"}

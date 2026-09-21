@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
-  CalendarDays,
-  ChevronDown,
   ChevronUp,
   Download,
   Edit,
@@ -51,10 +49,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 
 import {
   DataTable,
-  DataTableActions,
   DataTablePageSize,
   DataTablePagination,
-  DataTableToolbar,
   type DataTableColumn,
 } from "@/components/common/DataTable";
 
@@ -118,20 +114,6 @@ const formatDate = (dateValue?: string | null): string => {
   });
 };
 
-const formatDateForInput = (dateValue?: string | null): string => {
-  if (!dateValue) {
-    return "";
-  }
-
-  const date = new Date(dateValue);
-
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  return date.toISOString().split("T")[0];
-};
-
 function StatusBadge({ status }: { status: DiagnosisStatus }) {
   const isActive = status === "ACTIVE";
 
@@ -140,8 +122,8 @@ function StatusBadge({ status }: { status: DiagnosisStatus }) {
       variant="outline"
       className={
         isActive
-          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-          : "border-red-200 bg-red-50 text-red-700"
+          ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+          : "border-rose-300 bg-rose-50 text-rose-700"
       }
     >
       {isActive ? "Active" : "Inactive"}
@@ -153,6 +135,7 @@ function DetailItem({ label, value }: { label: string; value?: string | number |
   return (
     <div className="space-y-1">
       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+
       <p className="text-sm font-medium">
         {value === null || value === undefined || value === "" ? "-" : value}
       </p>
@@ -165,7 +148,10 @@ export default function DiagnosisPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
+  const [filterOpen, setFilterOpen] = useState(false);
+
   const [search, setSearch] = useState("");
+
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [categoryFilter, setCategoryFilter] = useState("ALL");
   const [typeFilter, setTypeFilter] = useState("ALL");
@@ -180,7 +166,6 @@ export default function DiagnosisPage() {
   const [selectedDiagnosis, setSelectedDiagnosis] = useState<Diagnosis | null>(null);
 
   const [detailsLoading, setDetailsLoading] = useState(false);
-
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
 
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
@@ -304,22 +289,31 @@ export default function DiagnosisPage() {
     paginatedDiagnoses.length > 0 &&
     paginatedDiagnoses.every((diagnosis) => selectedDiagnosisIds.includes(diagnosis._id));
 
-  const clearFilters = () => {
-    setSearch("");
+  const hasActiveFilters =
+    statusFilter !== "ALL" ||
+    categoryFilter !== "ALL" ||
+    typeFilter !== "ALL" ||
+    Boolean(fromDate) ||
+    Boolean(toDate);
+
+  /*
+   * Clears every filter and closes the filter panel.
+   *
+   * Search is intentionally NOT cleared here because search has
+   * its own X button.
+   */
+  const closeAndClearFilters = () => {
     setStatusFilter("ALL");
     setCategoryFilter("ALL");
     setTypeFilter("ALL");
     setFromDate("");
     setToDate("");
+    setFilterOpen(false);
   };
 
-  const hasActiveFilters =
-    search.trim() !== "" ||
-    statusFilter !== "ALL" ||
-    categoryFilter !== "ALL" ||
-    typeFilter !== "ALL" ||
-    fromDate !== "" ||
-    toDate !== "";
+  const clearSearch = () => {
+    setSearch("");
+  };
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -624,12 +618,46 @@ export default function DiagnosisPage() {
     {
       key: "actions",
       header: "Actions",
+      headerClassName: "text-center",
+      cellClassName: "text-center",
       render: (diagnosis) => (
-        <DataTableActions
-          onView={() => void handleView(diagnosis._id)}
-          onEdit={() => handleEdit(diagnosis)}
-          onDelete={() => openDeleteDialog(diagnosis)}
-        />
+        <div className="flex items-center justify-center gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            title="View diagnosis"
+            aria-label={`View ${diagnosis.diagnosisName}`}
+            onClick={() => void handleView(diagnosis._id)}
+            className="h-8 w-8 text-muted-foreground hover:bg-primary/10 hover:text-primary"
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            title="Edit diagnosis"
+            aria-label={`Edit ${diagnosis.diagnosisName}`}
+            onClick={() => handleEdit(diagnosis)}
+            className="h-8 w-8 text-muted-foreground hover:bg-amber-50 hover:text-amber-600"
+          >
+            <Edit className="h-4 w-4" />
+          </Button>
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            title="Delete diagnosis"
+            aria-label={`Delete ${diagnosis.diagnosisName}`}
+            onClick={() => openDeleteDialog(diagnosis)}
+            className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
       ),
     },
   ];
@@ -638,19 +666,17 @@ export default function DiagnosisPage() {
     <div className="space-y-6 pb-8">
       {/* PAGE HEADER */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              <Stethoscope className="h-5 w-5" />
-            </div>
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <Stethoscope className="h-5 w-5" />
+          </div>
 
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight">Diagnosis Management</h1>
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Diagnosis Management</h1>
 
-              <p className="text-sm text-muted-foreground">
-                Manage diagnosis master data and clinical classification.
-              </p>
-            </div>
+            <p className="text-sm text-muted-foreground">
+              Manage diagnosis master data and clinical classification.
+            </p>
           </div>
         </div>
       </div>
@@ -662,7 +688,8 @@ export default function DiagnosisPage() {
           value={totalDiagnoses}
           description="All diagnosis records"
           icon={FileText}
-          iconClassName="bg-primary/10 text-primary"
+          className="border-sky-200 bg-sky-50/60"
+          iconClassName="bg-sky-100 text-sky-600"
         />
 
         <KpiCard
@@ -670,7 +697,8 @@ export default function DiagnosisPage() {
           value={activeDiagnoses}
           description="Currently active"
           icon={Activity}
-          iconClassName="bg-emerald-50 text-emerald-600"
+          className="border-emerald-200 bg-emerald-50/60"
+          iconClassName="bg-emerald-100 text-emerald-600"
         />
 
         <KpiCard
@@ -678,7 +706,8 @@ export default function DiagnosisPage() {
           value={inactiveDiagnoses}
           description="Currently inactive"
           icon={X}
-          iconClassName="bg-red-50 text-red-600"
+          className="border-rose-200 bg-rose-50/60"
+          iconClassName="bg-rose-100 text-rose-600"
         />
 
         <KpiCard
@@ -686,14 +715,15 @@ export default function DiagnosisPage() {
           value={icdMappedDiagnoses}
           description="Records with ICD code"
           icon={Stethoscope}
-          iconClassName="bg-blue-50 text-blue-600"
+          className="border-violet-200 bg-violet-50/60"
+          iconClassName="bg-violet-100 text-violet-600"
         />
       </div>
 
       {/* DIAGNOSIS LIST */}
-      <section className="overflow-hidden rounded-xl border bg-background shadow-sm">
+      <section className="overflow-hidden rounded-xl border border-slate-200 bg-background shadow-sm">
         {/* LIST HEADER */}
-        <div className="flex flex-col gap-4 border-b px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-4 border-b border-slate-200 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h2 className="text-lg font-semibold">Diagnosis List</h2>
 
@@ -734,107 +764,241 @@ export default function DiagnosisPage() {
         </div>
 
         {/* FILTER BAR */}
-        <div className="border-b px-5 py-4">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-[2fr_1fr_1fr_1fr_1.4fr]">
+        <div className="border-b border-slate-200 px-5 py-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
             {/* SEARCH */}
-            <div className="relative">
+            <div className="relative w-full lg:max-w-md">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
 
               <Input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search by name, code, ICD code..."
-                className="pl-9"
+                className="pl-9 pr-9"
               />
+
+              {search && (
+                <button
+                  type="button"
+                  onClick={clearSearch}
+                  aria-label="Clear search"
+                  title="Clear search"
+                  className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
             </div>
 
-            {/* STATUS */}
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
+            {/* FILTER BUTTON */}
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setFilterOpen((current) => !current)}
+                className="shrink-0"
+              >
+                <Filter className="mr-2 h-4 w-4" />
+                Filters
+                {hasActiveFilters && (
+                  <span className="ml-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground">
+                    {
+                      [
+                        statusFilter !== "ALL",
+                        categoryFilter !== "ALL",
+                        typeFilter !== "ALL",
+                        Boolean(fromDate),
+                        Boolean(toDate),
+                      ].filter(Boolean).length
+                    }
+                  </span>
+                )}
+              </Button>
 
-              <SelectContent>
-                <SelectItem value="ALL">All Status</SelectItem>
-                <SelectItem value="ACTIVE">Active</SelectItem>
-                <SelectItem value="INACTIVE">Inactive</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {/* CATEGORY */}
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Category" />
-              </SelectTrigger>
-
-              <SelectContent>
-                <SelectItem value="ALL">All Categories</SelectItem>
-
-                {categories.map((category) => (
-                  <SelectItem key={category} value={category}>
-                    {category}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* TYPE */}
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Type" />
-              </SelectTrigger>
-
-              <SelectContent>
-                <SelectItem value="ALL">All Types</SelectItem>
-
-                {types.map((type) => (
-                  <SelectItem key={type} value={type}>
-                    {type}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* DATE RANGE */}
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1">
-                <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-
-                <Input
-                  type="date"
-                  value={fromDate}
-                  onChange={(event) => setFromDate(event.target.value)}
-                  className="pl-9"
-                  aria-label="From date"
-                />
-              </div>
-
-              <span className="text-sm text-muted-foreground">-</span>
-
-              <div className="relative flex-1">
-                <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-
-                <Input
-                  type="date"
-                  value={toDate}
-                  onChange={(event) => setToDate(event.target.value)}
-                  className="pl-9"
-                  aria-label="To date"
-                />
-              </div>
+              {/* MAIN CLEAR-ALL X */}
+              {hasActiveFilters && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  title="Clear all filters"
+                  aria-label="Clear all filters"
+                  onClick={closeAndClearFilters}
+                  className="h-9 w-9 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           </div>
 
-          {hasActiveFilters && (
-            <div className="mt-3 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Filter className="h-4 w-4" />
-                Filters applied
-              </div>
+          {/* FILTER PANEL */}
+          {filterOpen && (
+            <div className="mt-4 rounded-lg border border-slate-200 bg-muted/20 p-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+                {/* STATUS */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Status</label>
 
-              <Button type="button" variant="ghost" size="sm" onClick={clearFilters}>
-                Clear Filters
-              </Button>
+                  <div className="flex items-center gap-2">
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger className="flex-1">
+                        <SelectValue />
+                      </SelectTrigger>
+
+                      <SelectContent>
+                        <SelectItem value="ALL">All Status</SelectItem>
+                        <SelectItem value="ACTIVE">Active</SelectItem>
+                        <SelectItem value="INACTIVE">Inactive</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    {statusFilter !== "ALL" && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        title="Clear status filter"
+                        aria-label="Clear status filter"
+                        onClick={() => setStatusFilter("ALL")}
+                        className="h-9 w-9 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* CATEGORY */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Category</label>
+
+                  <div className="flex items-center gap-2">
+                    <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                      <SelectTrigger className="flex-1">
+                        <SelectValue />
+                      </SelectTrigger>
+
+                      <SelectContent>
+                        <SelectItem value="ALL">All Categories</SelectItem>
+
+                        {categories.map((category) => (
+                          <SelectItem key={category} value={category}>
+                            {category}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    {categoryFilter !== "ALL" && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        title="Clear category filter"
+                        aria-label="Clear category filter"
+                        onClick={() => setCategoryFilter("ALL")}
+                        className="h-9 w-9 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* TYPE */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Type</label>
+
+                  <div className="flex items-center gap-2">
+                    <Select value={typeFilter} onValueChange={setTypeFilter}>
+                      <SelectTrigger className="flex-1">
+                        <SelectValue />
+                      </SelectTrigger>
+
+                      <SelectContent>
+                        <SelectItem value="ALL">All Types</SelectItem>
+
+                        {types.map((type) => (
+                          <SelectItem key={type} value={type}>
+                            {type}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    {typeFilter !== "ALL" && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        title="Clear type filter"
+                        aria-label="Clear type filter"
+                        onClick={() => setTypeFilter("ALL")}
+                        className="h-9 w-9 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* FROM DATE */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">From Date</label>
+
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="date"
+                      value={fromDate}
+                      onChange={(event) => setFromDate(event.target.value)}
+                      className="flex-1"
+                    />
+
+                    {fromDate && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        title="Clear from date"
+                        aria-label="Clear from date"
+                        onClick={() => setFromDate("")}
+                        className="h-9 w-9 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* TO DATE */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">To Date</label>
+
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="date"
+                      value={toDate}
+                      onChange={(event) => setToDate(event.target.value)}
+                      className="flex-1"
+                    />
+
+                    {toDate && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        title="Clear to date"
+                        aria-label="Clear to date"
+                        onClick={() => setToDate("")}
+                        className="h-9 w-9 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -856,7 +1020,7 @@ export default function DiagnosisPage() {
 
         {/* SELECT ALL */}
         {!loading && paginatedDiagnoses.length > 0 && (
-          <div className="flex items-center gap-2 border-t px-5 py-3">
+          <div className="flex items-center gap-2 border-t border-slate-200 px-5 py-3">
             <Checkbox
               checked={allCurrentPageSelected}
               onCheckedChange={(checked) => handleSelectAll(checked === true)}
@@ -869,7 +1033,7 @@ export default function DiagnosisPage() {
 
         {/* PAGINATION */}
         {!loading && filteredDiagnoses.length > 0 && (
-          <div className="flex flex-col gap-3 border-t px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 border-t border-slate-200 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
             <DataTablePageSize
               value={pageSize}
               onChange={(value) => {
@@ -909,9 +1073,9 @@ export default function DiagnosisPage() {
       {formOpen && (
         <section
           ref={formRef}
-          className="overflow-hidden rounded-xl border bg-background shadow-sm"
+          className="overflow-hidden rounded-xl border border-slate-200 bg-background shadow-sm"
         >
-          <div className="flex items-center justify-between border-b bg-muted/30 px-5 py-4">
+          <div className="flex items-center justify-between border-b border-slate-200 bg-muted/30 px-5 py-4">
             <div>
               <h2 className="text-lg font-semibold">
                 {editingDiagnosis ? "Edit Diagnosis" : "Add New Diagnosis"}
@@ -931,7 +1095,7 @@ export default function DiagnosisPage() {
               onClick={handleFormCancel}
               aria-label="Close diagnosis form"
             >
-              {formOpen ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+              <ChevronUp className="h-5 w-5" />
             </Button>
           </div>
 
@@ -960,7 +1124,7 @@ export default function DiagnosisPage() {
             </div>
           ) : selectedDiagnosis ? (
             <div className="space-y-6">
-              <div className="flex items-start justify-between gap-4 rounded-xl border bg-muted/20 p-4">
+              <div className="flex items-start justify-between gap-4 rounded-xl border border-slate-200 bg-muted/20 p-4">
                 <div>
                   <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Diagnosis
@@ -996,7 +1160,7 @@ export default function DiagnosisPage() {
                 <DetailItem label="Updated Date" value={formatDate(selectedDiagnosis.updatedAt)} />
               </div>
 
-              <div className="rounded-xl border p-4">
+              <div className="rounded-xl border border-slate-200 p-4">
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Description
                 </p>
@@ -1006,7 +1170,7 @@ export default function DiagnosisPage() {
                 </p>
               </div>
 
-              <div className="flex items-center justify-between rounded-xl border p-4">
+              <div className="flex items-center justify-between rounded-xl border border-slate-200 p-4">
                 <div>
                   <p className="font-medium">Diagnosis Status</p>
 

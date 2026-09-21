@@ -231,7 +231,10 @@ export default function DepartmentPage() {
   const clearFilters = () => {
     setSelectedFilters([]);
   };
-
+const closeAndClearFilters = () => {
+  clearFilters();
+  setFilterOpen(false);
+};
   // =========================================================
   // FILTER DEPARTMENTS
   // =========================================================
@@ -1049,8 +1052,8 @@ export default function DepartmentPage() {
               value={totalDepartments}
               description="All departments"
               icon={Building2}
-              className="bg-blue-50/70 border-blue-100"
-              iconClassName="bg-blue-100 text-blue-700"
+              className="border-sky-200 bg-sky-50/60"
+              iconClassName="bg-sky-100 text-sky-600"
             />
 
             <KpiCard
@@ -1058,8 +1061,8 @@ export default function DepartmentPage() {
               value={activeDepartments}
               description="Currently operational"
               icon={Activity}
-              className="bg-green-50/70 border-green-100"
-              iconClassName="bg-green-100 text-green-700"
+              className="border-emerald-200 bg-emerald-50/60"
+              iconClassName="bg-emerald-100 text-emerald-600"
             />
 
             <KpiCard
@@ -1067,8 +1070,8 @@ export default function DepartmentPage() {
               value={inactiveDepartments}
               description="Currently inactive"
               icon={ToggleLeft}
-              className="bg-slate-50/80 border-slate-200"
-              iconClassName="bg-slate-100 text-slate-600"
+              className="border-rose-200 bg-rose-50/60"
+              iconClassName="bg-rose-100 text-rose-600"
             />
 
             <KpiCard
@@ -1076,8 +1079,8 @@ export default function DepartmentPage() {
               value={totalStaff}
               description="Across all departments"
               icon={Users}
-              className="bg-violet-50/70 border-violet-100"
-              iconClassName="bg-violet-100 text-violet-700"
+              className="border-violet-200 bg-violet-50/60"
+              iconClassName="bg-violet-100 text-violet-600"
             />
           </div>
 
