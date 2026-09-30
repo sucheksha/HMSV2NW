@@ -68,6 +68,31 @@ const ADMIN_NAV: NavGroup[] = [
     ],
   },
   {
+    label: "Master",
+    items: [
+      {
+        label: "Department",
+        to: "/module/departments",
+        icon: Hospital,
+      },
+      {
+        label: "Diagnosis",
+        to: "/module/diagnosis",
+        icon: ClipboardList,
+      },
+      {
+        label: "Investigation",
+        to: "/module/investigation",
+        icon: FlaskConical,
+      },
+      {
+        label: "Roles",
+        to: "/module/roles",
+        icon: ShieldCheck,
+      },
+    ],
+  },
+  {
     label: "Operations",
     items: [
       {
@@ -147,26 +172,7 @@ const ADMIN_NAV: NavGroup[] = [
       },
     ],
   },
-  {
-    label: "Master",
-    items: [
-      {
-        label: "Department",
-        to: "/module/departments",
-        icon: Hospital,
-      },
-      {
-        label: "Diagnosis",
-        to: "/module/diagnosis",
-        icon: ClipboardList,
-      },
-      {
-        label: "Roles",
-        to: "/module/roles",
-        icon: ShieldCheck,
-      },
-    ],
-  },
+
   {
     label: "Finance & Insights",
     items: [

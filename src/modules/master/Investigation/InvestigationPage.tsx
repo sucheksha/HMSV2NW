@@ -15,7 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-
+import { SearchInput } from "@/components/common/SearchInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -46,14 +46,14 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
-
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import {
   DataTable,
   DataTablePageSize,
   DataTablePagination,
   type DataTableColumn,
 } from "@/components/common/DataTable";
-
+import { FormDialog } from "@/components/common/FormDialog";
 import { KpiCard } from "@/components/common/KpiCard/KpiCard";
 
 import {
@@ -66,7 +66,7 @@ import {
 import type { Investigation, InvestigationStatus } from "./investigation.types";
 
 import { InvestigationForm } from "./InvestigationForm";
-
+import { PageContainer } from "@/components/common/PageContainer";
 const getApiErrorMessage = (error: unknown): string => {
   if (typeof error === "object" && error !== null && "response" in error) {
     const response = (
@@ -691,7 +691,7 @@ export default function InvestigationPage() {
   ];
 
   return (
-    <div className="space-y-6 pb-8">
+    <PageContainer>
       {/* PAGE HEADER */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
@@ -795,28 +795,13 @@ export default function InvestigationPage() {
         <div className="border-b border-slate-200 px-5 py-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
             {/* SEARCH */}
-            <div className="relative w-full lg:max-w-md">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-
-              <Input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search by name, code, LOINC code..."
-                className="pl-9 pr-9"
-              />
-
-              {search && (
-                <button
-                  type="button"
-                  onClick={clearSearch}
-                  aria-label="Clear search"
-                  title="Clear search"
-                  className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-            </div>
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              onClear={clearSearch}
+              placeholder="Search by name, code..."
+              containerClassName="lg:max-w-md"
+            />
 
             {/* FILTER BUTTON */}
             <div className="flex items-center gap-1">
@@ -1070,6 +1055,18 @@ export default function InvestigationPage() {
 
         {/* TABLE */}
         <div className="px-5">
+          {/* SELECT ALL */}
+          {!loading && paginatedInvestigations.length > 0 && (
+            <div className="flex items-center gap-2 border-t border-slate-200 px-5 py-3">
+              <Checkbox
+                checked={allCurrentPageSelected}
+                onCheckedChange={(checked) => handleSelectAll(checked === true)}
+                aria-label="Select all investigations on this page"
+              />
+
+              <span className="text-sm text-muted-foreground">Select all on this page</span>
+            </div>
+          )}
           <DataTable
             columns={columns}
             data={paginatedInvestigations}
@@ -1082,19 +1079,6 @@ export default function InvestigationPage() {
             }
           />
         </div>
-
-        {/* SELECT ALL */}
-        {!loading && paginatedInvestigations.length > 0 && (
-          <div className="flex items-center gap-2 border-t border-slate-200 px-5 py-3">
-            <Checkbox
-              checked={allCurrentPageSelected}
-              onCheckedChange={(checked) => handleSelectAll(checked === true)}
-              aria-label="Select all investigations on this page"
-            />
-
-            <span className="text-sm text-muted-foreground">Select all on this page</span>
-          </div>
-        )}
 
         {/* PAGINATION */}
         {!loading && filteredInvestigations.length > 0 && (
@@ -1135,44 +1119,26 @@ export default function InvestigationPage() {
       )}
 
       {/* ADD / EDIT FORM */}
-      {formOpen && (
-        <section
-          ref={formRef}
-          className="overflow-hidden rounded-xl border border-slate-200 bg-background shadow-sm"
-        >
-          <div className="flex items-center justify-between border-b border-slate-200 bg-muted/30 px-5 py-4">
-            <div>
-              <h2 className="text-lg font-semibold">
-                {editingInvestigation ? "Edit Investigation" : "Add New Investigation"}
-              </h2>
-
-              <p className="text-sm text-muted-foreground">
-                {editingInvestigation
-                  ? "Update the investigation master record."
-                  : "Enter the investigation details to create a new master record."}
-              </p>
-            </div>
-
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={handleFormCancel}
-              aria-label="Close investigation form"
-            >
-              <ChevronUp className="h-5 w-5" />
-            </Button>
-          </div>
-
-          <div className="p-5">
-            <InvestigationForm
-              investigation={editingInvestigation}
-              onSuccess={() => void handleFormSuccess()}
-              onCancel={handleFormCancel}
-            />
-          </div>
-        </section>
-      )}
+      <FormDialog
+        open={formOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleFormCancel();
+          }
+        }}
+        title={editingInvestigation ? "Edit Investigation" : "Add New Investigation"}
+        description={
+          editingInvestigation
+            ? "Update the investigation master record."
+            : "Enter the investigation details to create a new master record."
+        }
+      >
+        <InvestigationForm
+          investigation={editingInvestigation}
+          onSuccess={() => void handleFormSuccess()}
+          onCancel={handleFormCancel}
+        />
+      </FormDialog>
 
       {/* VIEW DETAILS */}
       <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
@@ -1321,33 +1287,20 @@ export default function InvestigationPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* DELETE CONFIRMATION */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Investigation?</AlertDialogTitle>
-
-            <AlertDialogDescription>
-              Are you sure you want to delete <strong>{deleteTarget?.investigationName}</strong>?
-              This will perform a soft delete and remove the record from the active investigation
-              list.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
-
-            <AlertDialogAction
-              onClick={() => void handleDelete()}
-              disabled={deleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deleting ? "Deleting..." : "Delete Investigation"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
+      {/*delete confirm*/}
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Delete Investigation?"
+        description={`Are you sure you want to delete ${
+          deleteTarget?.investigationName ?? "this investigation"
+        }? This will perform a soft delete and remove the record from the active investigation list.`}
+        confirmText={deleting ? "Deleting..." : "Delete Investigation"}
+        cancelText="Cancel"
+        onConfirm={() => void handleDelete()}
+        destructive
+        loading={deleting}
+      />
+    </PageContainer>
   );
 }

@@ -6,7 +6,7 @@ import { useAuth, roleHome } from "@/auth/auth";
 
 import DepartmentPage from "@/modules/master/department/DepartmentPage";
 import DiagnosisPage from "@/modules/master/diagnosis/diagnosisPage";
-
+import InvestigationPage from "@/modules/master/Investigation/InvestigationPage";
 export const Route = createFileRoute("/_app/module/$name")({
   component: ModuleStub,
 });
@@ -29,7 +29,9 @@ function ModuleStub() {
   if (name === "diagnosis") {
     return <DiagnosisPage />;
   }
-
+  if (name === "investigation") {
+    return <InvestigationPage />;
+  }
   const { user } = useAuth();
 
   const title = humanize(name);

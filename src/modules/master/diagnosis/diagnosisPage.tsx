@@ -15,7 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-
+import { PageContainer } from "@/components/common/PageContainer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -33,16 +33,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -55,16 +45,16 @@ import {
 } from "@/components/common/DataTable";
 
 import { KpiCard } from "@/components/common/KpiCard/KpiCard";
-
+import { SearchInput } from "@/components/common/SearchInput";
 import {
   deleteDiagnosis,
   getDiagnoses,
   getDiagnosisById,
   updateDiagnosis,
 } from "./diagnosis.service";
-
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import type { Diagnosis, DiagnosisStatus } from "./diagnosis.types";
-
+import { FormDialog } from "@/components/common/FormDialog";
 import { DiagnosisForm } from "./DiagnosisForm";
 
 const getApiErrorMessage = (error: unknown): string => {
@@ -663,7 +653,7 @@ export default function DiagnosisPage() {
   ];
 
   return (
-    <div className="space-y-6 pb-8">
+    <PageContainer>
       {/* PAGE HEADER */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
@@ -767,28 +757,13 @@ export default function DiagnosisPage() {
         <div className="border-b border-slate-200 px-5 py-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
             {/* SEARCH */}
-            <div className="relative w-full lg:max-w-md">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-
-              <Input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search by name, code, ICD code..."
-                className="pl-9 pr-9"
-              />
-
-              {search && (
-                <button
-                  type="button"
-                  onClick={clearSearch}
-                  aria-label="Clear search"
-                  title="Clear search"
-                  className="absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-            </div>
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              onClear={clearSearch}
+              placeholder="Search by name, code, ICD code..."
+              containerClassName="lg:max-w-md"
+            />
 
             {/* FILTER BUTTON */}
             <div className="flex items-center gap-1">
@@ -1005,6 +980,18 @@ export default function DiagnosisPage() {
 
         {/* TABLE */}
         <div className="px-5">
+          {/* SELECT ALL */}
+          {!loading && paginatedDiagnoses.length > 0 && (
+            <div className="flex items-center gap-2 border-t border-slate-200 px-5 py-3">
+              <Checkbox
+                checked={allCurrentPageSelected}
+                onCheckedChange={(checked) => handleSelectAll(checked === true)}
+                aria-label="Select all diagnoses on this page"
+              />
+
+              <span className="text-sm text-muted-foreground">Select all on this page</span>
+            </div>
+          )}
           <DataTable
             columns={columns}
             data={paginatedDiagnoses}
@@ -1017,19 +1004,6 @@ export default function DiagnosisPage() {
             }
           />
         </div>
-
-        {/* SELECT ALL */}
-        {!loading && paginatedDiagnoses.length > 0 && (
-          <div className="flex items-center gap-2 border-t border-slate-200 px-5 py-3">
-            <Checkbox
-              checked={allCurrentPageSelected}
-              onCheckedChange={(checked) => handleSelectAll(checked === true)}
-              aria-label="Select all diagnoses on this page"
-            />
-
-            <span className="text-sm text-muted-foreground">Select all on this page</span>
-          </div>
-        )}
 
         {/* PAGINATION */}
         {!loading && filteredDiagnoses.length > 0 && (
@@ -1070,44 +1044,26 @@ export default function DiagnosisPage() {
       )}
 
       {/* ADD / EDIT FORM */}
-      {formOpen && (
-        <section
-          ref={formRef}
-          className="overflow-hidden rounded-xl border border-slate-200 bg-background shadow-sm"
-        >
-          <div className="flex items-center justify-between border-b border-slate-200 bg-muted/30 px-5 py-4">
-            <div>
-              <h2 className="text-lg font-semibold">
-                {editingDiagnosis ? "Edit Diagnosis" : "Add New Diagnosis"}
-              </h2>
-
-              <p className="text-sm text-muted-foreground">
-                {editingDiagnosis
-                  ? "Update the diagnosis master record."
-                  : "Enter the diagnosis details to create a new master record."}
-              </p>
-            </div>
-
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={handleFormCancel}
-              aria-label="Close diagnosis form"
-            >
-              <ChevronUp className="h-5 w-5" />
-            </Button>
-          </div>
-
-          <div className="p-5">
-            <DiagnosisForm
-              diagnosis={editingDiagnosis}
-              onSuccess={() => void handleFormSuccess()}
-              onCancel={handleFormCancel}
-            />
-          </div>
-        </section>
-      )}
+      <FormDialog
+        open={formOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleFormCancel();
+          }
+        }}
+        title={editingDiagnosis ? "Edit Diagnosis" : "Add New Diagnosis"}
+        description={
+          editingDiagnosis
+            ? "Update the diagnosis master record."
+            : "Enter the diagnosis details to create a new master record."
+        }
+      >
+        <DiagnosisForm
+          diagnosis={editingDiagnosis}
+          onSuccess={() => void handleFormSuccess()}
+          onCancel={handleFormCancel}
+        />
+      </FormDialog>
 
       {/* VIEW DETAILS */}
       <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
@@ -1208,58 +1164,18 @@ export default function DiagnosisPage() {
         </DialogContent>
       </Dialog>
 
-      {/* STATUS CONFIRMATION */}
-      <AlertDialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {statusDiagnosis?.status === "ACTIVE"
-                ? "Deactivate Diagnosis?"
-                : "Activate Diagnosis?"}
-            </AlertDialogTitle>
-
-            <AlertDialogDescription>
-              {statusDiagnosis?.status === "ACTIVE"
-                ? `Are you sure you want to deactivate "${statusDiagnosis?.diagnosisName}"?`
-                : `Are you sure you want to activate "${statusDiagnosis?.diagnosisName}"?`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={statusChanging}>Cancel</AlertDialogCancel>
-
-            <AlertDialogAction onClick={() => void handleStatusChange()} disabled={statusChanging}>
-              {statusDiagnosis?.status === "ACTIVE" ? "Deactivate" : "Activate"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
       {/* DELETE CONFIRMATION */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Diagnosis?</AlertDialogTitle>
-
-            <AlertDialogDescription>
-              Are you sure you want to delete <strong>{deleteTarget?.diagnosisName}</strong>? This
-              will perform a soft delete and remove the record from the active diagnosis list.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
-
-            <AlertDialogAction
-              onClick={() => void handleDelete()}
-              disabled={deleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deleting ? "Deleting..." : "Delete Diagnosis"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Delete Diagnosis?"
+        description={`Are you sure you want to delete ${deleteTarget?.diagnosisName ?? "this diagnosis"}? This will perform a soft delete and remove the record from the active diagnosis list.`}
+        confirmText={deleting ? "Deleting..." : "Delete Diagnosis"}
+        cancelText="Cancel"
+        onConfirm={() => void handleDelete()}
+        destructive
+        loading={deleting}
+      />
+    </PageContainer>
   );
 }

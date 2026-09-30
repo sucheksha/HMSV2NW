@@ -197,9 +197,9 @@ export function InvestigationForm({ investigation, onSuccess, onCancel }: Invest
           loincCode: loincCode.trim() || null,
           category: category.trim(),
           type: type.trim(),
-          sampleType: sampleType.trim() || null,
           turnaroundTime: parsedTurnaroundTime,
-          description: description.trim() || null,
+          sampleType: sampleType.trim(),
+          description: description.trim(),
         };
 
         await updateInvestigation(investigation._id, updateData);
@@ -212,9 +212,9 @@ export function InvestigationForm({ investigation, onSuccess, onCancel }: Invest
           loincCode: loincCode.trim() || null,
           category: category.trim(),
           type: type.trim(),
-          sampleType: sampleType.trim() || null,
           turnaroundTime: parsedTurnaroundTime,
-          description: description.trim() || null,
+          sampleType: sampleType.trim(),
+          description: description.trim(),
         };
 
         await createInvestigation(createData);

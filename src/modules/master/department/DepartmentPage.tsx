@@ -31,14 +31,14 @@ import {
 } from "./department.service";
 
 import type { Department } from "./department.types";
-
+import { FormDialog } from "@/components/common/FormDialog";
 import DepartmentForm from "./DepartmentForm";
-
+import { SearchInput } from "@/components/common/SearchInput";
 import { getApiErrorMessage } from "@/lib/apiErrorMessage";
-
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-
+import { PageContainer } from "@/components/common/PageContainer";
 import {
   Dialog,
   DialogContent,
@@ -231,10 +231,10 @@ export default function DepartmentPage() {
   const clearFilters = () => {
     setSelectedFilters([]);
   };
-const closeAndClearFilters = () => {
-  clearFilters();
-  setFilterOpen(false);
-};
+  const closeAndClearFilters = () => {
+    clearFilters();
+    setFilterOpen(false);
+  };
   // =========================================================
   // FILTER DEPARTMENTS
   // =========================================================
@@ -605,7 +605,7 @@ const closeAndClearFilters = () => {
   // =========================================================
 
   return (
-    <div className="min-h-full space-y-7 p-4 sm:p-6">
+    <PageContainer>
       {/* =====================================================
           PAGE HEADER
       ====================================================== */}
@@ -665,57 +665,20 @@ const closeAndClearFilters = () => {
 
           <div className="flex w-full flex-col gap-3 sm:flex-row">
             {/* SEARCH */}
-
-            <div className="relative w-full sm:max-w-[390px]">
-              <Search
-                className="
-                  pointer-events-none
-                  absolute left-3 top-1/2
-                  h-4 w-4
-                  -translate-y-1/2
-                  text-blue-500
-                "
-                aria-hidden="true"
-              />
-
-              <Input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search departments..."
-                className="
-                  h-10
-                  border-blue-100
-                  bg-blue-50/40
-                  pl-9 pr-9
-                  focus-visible:ring-blue-400
-                "
-                aria-label="Search departments by name or code"
-              />
-
-              {search && (
-                <button
-                  type="button"
-                  onClick={handleClearSearch}
-                  className="
-                    absolute right-2 top-1/2
-                    flex h-7 w-7
-                    -translate-y-1/2
-                    items-center justify-center
-                    rounded-md
-                    text-muted-foreground
-                    hover:bg-blue-100
-                    hover:text-foreground
-                    focus-visible:outline-none
-                    focus-visible:ring-2
-                    focus-visible:ring-primary
-                  "
-                  aria-label="Clear department search"
-                  title="Clear search"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-            </div>
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              onClear={handleClearSearch}
+              placeholder="Search departments..."
+              aria-label="Search departments by name or code"
+              containerClassName="sm:max-w-[390px]"
+              className="
+    h-10
+    border-blue-100
+    bg-blue-50/40
+    focus-visible:ring-blue-400
+  "
+            />
 
             {/* FILTER */}
 
@@ -1219,35 +1182,22 @@ const closeAndClearFilters = () => {
       {/* =====================================================
           ADD / EDIT DIALOG
       ====================================================== */}
-
-      <Dialog
+      <FormDialog
         open={formOpen}
         onOpenChange={(open) => {
           if (!open) {
             handleFormCancel();
           }
         }}
+        title={editDepartment ? "Edit Department" : "Add Department"}
+        description={editDepartment ? "Update the department details." : "Create a new department."}
       >
-        <DialogContent
-          className="
-            w-[calc(100%-2rem)]
-            max-h-[90vh]
-            max-w-lg
-            overflow-y-auto
-            rounded-xl
-          "
-        >
-          <DialogHeader>
-            <DialogTitle>{editDepartment ? "Edit Department" : "Add Department"}</DialogTitle>
-          </DialogHeader>
-
-          <DepartmentForm
-            department={editDepartment}
-            onSuccess={handleFormSuccess}
-            onCancel={handleFormCancel}
-          />
-        </DialogContent>
-      </Dialog>
+        <DepartmentForm
+          department={editDepartment}
+          onSuccess={handleFormSuccess}
+          onCancel={handleFormCancel}
+        />
+      </FormDialog>
 
       {/* =====================================================
           DETAILS DIALOG
@@ -1528,93 +1478,27 @@ const closeAndClearFilters = () => {
       {/* =====================================================
           DELETE CONFIRMATION
       ====================================================== */}
-
-      <Dialog
+      <ConfirmDialog
         open={deleteDialogOpen}
-        onOpenChange={(open) => {
-          if (!deleting) {
-            setDeleteDialogOpen(open);
-
-            if (!open) {
-              setDeleteError("");
-            }
-          }
-        }}
+        onOpenChange={setDeleteDialogOpen}
+        title={`Delete ${selectedDepartmentIds.length} department${
+          selectedDepartmentIds.length !== 1 ? "s" : ""
+        }?`}
+        description={`The selected department${
+          selectedDepartmentIds.length !== 1 ? "s" : ""
+        } will be deactivated and removed from the active department list.`}
+        confirmText={deleting ? "Deleting..." : "Yes, Delete"}
+        cancelText="Cancel"
+        onConfirm={handleDeleteSelected}
+        destructive
+        loading={deleting}
       >
-        <DialogContent
-          className="
-            w-[calc(100%-2rem)]
-            max-w-md
-            rounded-xl
-          "
-        >
-          <DialogHeader>
-            <DialogTitle>Delete Department</DialogTitle>
-
-            <DialogDescription>Review this action before continuing.</DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div className="rounded-xl border border-red-200 bg-red-50 p-4">
-              <div className="flex gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
-                  <Trash2 className="h-4 w-4" />
-                </div>
-
-                <div>
-                  <p className="text-sm font-semibold text-red-800">
-                    Delete {selectedDepartmentIds.length} department
-                    {selectedDepartmentIds.length !== 1 ? "s" : ""}?
-                  </p>
-
-                  <p className="mt-1 text-sm text-red-700">
-                    The selected department
-                    {selectedDepartmentIds.length !== 1 ? "s" : ""} will be deactivated and removed
-                    from the active department list.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {deleteError && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                {deleteError}
-              </div>
-            )}
-
-            <div className="flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setDeleteDialogOpen(false)}
-                disabled={deleting}
-              >
-                Cancel
-              </Button>
-
-              <Button
-                type="button"
-                variant="destructive"
-                onClick={handleDeleteSelected}
-                disabled={deleting || selectedDepartmentIds.length === 0}
-                className="gap-2"
-              >
-                {deleting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Deleting...
-                  </>
-                ) : (
-                  <>
-                    <Trash2 className="h-4 w-4" />
-                    Yes, Delete
-                  </>
-                )}
-              </Button>
-            </div>
+        {deleteError && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {deleteError}
           </div>
-        </DialogContent>
-      </Dialog>
+        )}
+      </ConfirmDialog>
 
       {/* =====================================================
           PAGE UP BUTTON
@@ -1654,7 +1538,7 @@ const closeAndClearFilters = () => {
           <ChevronUp className="h-5 w-5" aria-hidden="true" />
         </button>
       )}
-    </div>
+    </PageContainer>
   );
 }
 
