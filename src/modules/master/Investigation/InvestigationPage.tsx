@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
-  ChevronUp,
+  ChevronDown,
   Download,
   Edit,
   Eye,
@@ -64,7 +64,12 @@ import {
 } from "./investigation.service";
 
 import type { Investigation, InvestigationStatus } from "./investigation.types";
-
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { InvestigationForm } from "./InvestigationForm";
 import { PageContainer } from "@/components/common/PageContainer";
 const getApiErrorMessage = (error: unknown): string => {
@@ -176,7 +181,7 @@ export default function InvestigationPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Investigation | null>(null);
   const [deleting, setDeleting] = useState(false);
-
+  const [deleteMode, setDeleteMode] = useState<"SINGLE" | "BULK">("SINGLE");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -454,6 +459,16 @@ export default function InvestigationPage() {
 
   const openDeleteDialog = (investigation: Investigation) => {
     setDeleteTarget(investigation);
+    setDeleteMode("SINGLE");
+    setDeleteDialogOpen(true);
+  };
+  const openBulkDeleteDialog = () => {
+    if (selectedInvestigationIds.length === 0) {
+      return;
+    }
+
+    setDeleteTarget(null);
+    setDeleteMode("BULK");
     setDeleteDialogOpen(true);
   };
 
@@ -497,7 +512,8 @@ export default function InvestigationPage() {
       );
 
       setSelectedInvestigationIds([]);
-
+      setDeleteDialogOpen(false);
+      setDeleteTarget(null);
       await loadInvestigations();
     } catch (error) {
       toast.error(getApiErrorMessage(error));
@@ -649,42 +665,41 @@ export default function InvestigationPage() {
       headerClassName: "text-center",
       cellClassName: "text-center",
       render: (investigation) => (
-        <div className="flex items-center justify-center gap-1">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            title="View investigation"
-            aria-label={`View ${investigation.investigationName}`}
-            onClick={() => void handleView(investigation._id)}
-            className="h-8 w-8 text-muted-foreground hover:bg-primary/10 hover:text-primary"
-          >
-            <Eye className="h-4 w-4" />
-          </Button>
+        <div className="flex items-center justify-center">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                aria-label={`Actions for ${investigation.investigationName}`}
+                className="h-8 gap-1 px-2 text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                Actions
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
 
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            title="Edit investigation"
-            aria-label={`Edit ${investigation.investigationName}`}
-            onClick={() => handleEdit(investigation)}
-            className="h-8 w-8 text-muted-foreground hover:bg-amber-50 hover:text-amber-600"
-          >
-            <Edit className="h-4 w-4" />
-          </Button>
+            <DropdownMenuContent align="end" className="w-36">
+              <DropdownMenuItem onClick={() => void handleView(investigation._id)}>
+                <Eye className="mr-2 h-4 w-4" />
+                View
+              </DropdownMenuItem>
 
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            title="Delete investigation"
-            aria-label={`Delete ${investigation.investigationName}`}
-            onClick={() => openDeleteDialog(investigation)}
-            className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+              <DropdownMenuItem onClick={() => handleEdit(investigation)}>
+                <Edit className="mr-2 h-4 w-4" />
+                Edit
+              </DropdownMenuItem>
+
+              <DropdownMenuItem
+                onClick={() => openDeleteDialog(investigation)}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       ),
     },
@@ -766,7 +781,7 @@ export default function InvestigationPage() {
                 type="button"
                 variant="destructive"
                 size="sm"
-                onClick={() => void handleBulkDelete()}
+                onClick={openBulkDeleteDialog}
                 disabled={deleting}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
@@ -1291,13 +1306,23 @@ export default function InvestigationPage() {
       <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        title="Delete Investigation?"
-        description={`Are you sure you want to delete ${
-          deleteTarget?.investigationName ?? "this investigation"
-        }? This will perform a soft delete and remove the record from the active investigation list.`}
-        confirmText={deleting ? "Deleting..." : "Delete Investigation"}
+        title={
+          deleteMode === "BULK"
+            ? `Delete ${selectedInvestigationIds.length} Investigations?`
+            : "Delete Investigation?"
+        }
+        description={
+          deleteMode === "BULK"
+            ? `Are you sure you want to delete ${selectedInvestigationIds.length} selected investigation ${
+                selectedInvestigationIds.length === 1 ? "record" : "records"
+              }? This will perform a soft delete and remove them from the active investigation list.`
+            : `Are you sure you want to delete ${
+                deleteTarget?.investigationName ?? "this investigation"
+              }? This will perform a soft delete and remove the record from the active investigation list.`
+        }
+        confirmText={deleting ? "Deleting..." : "Delete"}
         cancelText="Cancel"
-        onConfirm={() => void handleDelete()}
+        onConfirm={() => (deleteMode === "BULK" ? handleBulkDelete() : handleDelete())}
         destructive
         loading={deleting}
       />

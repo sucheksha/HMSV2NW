@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
-  ChevronUp,
+  ChevronDown,
   Download,
   Edit,
   Eye,
@@ -43,7 +43,12 @@ import {
   DataTablePagination,
   type DataTableColumn,
 } from "@/components/common/DataTable";
-
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { KpiCard } from "@/components/common/KpiCard/KpiCard";
 import { SearchInput } from "@/components/common/SearchInput";
 import {
@@ -165,6 +170,8 @@ export default function DiagnosisPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Diagnosis | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const [deleteMode, setDeleteMode] = useState<"SINGLE" | "BULK">("SINGLE");
 
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -416,6 +423,17 @@ export default function DiagnosisPage() {
 
   const openDeleteDialog = (diagnosis: Diagnosis) => {
     setDeleteTarget(diagnosis);
+    setDeleteMode("SINGLE");
+    setDeleteDialogOpen(true);
+  };
+
+  const openBulkDeleteDialog = () => {
+    if (selectedDiagnosisIds.length === 0) {
+      return;
+    }
+
+    setDeleteTarget(null);
+    setDeleteMode("BULK");
     setDeleteDialogOpen(true);
   };
 
@@ -459,7 +477,8 @@ export default function DiagnosisPage() {
       );
 
       setSelectedDiagnosisIds([]);
-
+      setDeleteDialogOpen(false);
+      setDeleteTarget(null);
       await loadDiagnoses();
     } catch (error) {
       toast.error(getApiErrorMessage(error));
@@ -611,42 +630,41 @@ export default function DiagnosisPage() {
       headerClassName: "text-center",
       cellClassName: "text-center",
       render: (diagnosis) => (
-        <div className="flex items-center justify-center gap-1">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            title="View diagnosis"
-            aria-label={`View ${diagnosis.diagnosisName}`}
-            onClick={() => void handleView(diagnosis._id)}
-            className="h-8 w-8 text-muted-foreground hover:bg-primary/10 hover:text-primary"
-          >
-            <Eye className="h-4 w-4" />
-          </Button>
+        <div className="flex items-center justify-center">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                aria-label={`Actions for ${diagnosis.diagnosisName}`}
+                className="h-8 gap-1 px-2 text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                Actions
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
 
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            title="Edit diagnosis"
-            aria-label={`Edit ${diagnosis.diagnosisName}`}
-            onClick={() => handleEdit(diagnosis)}
-            className="h-8 w-8 text-muted-foreground hover:bg-amber-50 hover:text-amber-600"
-          >
-            <Edit className="h-4 w-4" />
-          </Button>
+            <DropdownMenuContent align="end" className="w-36">
+              <DropdownMenuItem onClick={() => void handleView(diagnosis._id)}>
+                <Eye className="mr-2 h-4 w-4" />
+                View
+              </DropdownMenuItem>
 
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            title="Delete diagnosis"
-            aria-label={`Delete ${diagnosis.diagnosisName}`}
-            onClick={() => openDeleteDialog(diagnosis)}
-            className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+              <DropdownMenuItem onClick={() => handleEdit(diagnosis)}>
+                <Edit className="mr-2 h-4 w-4" />
+                Edit
+              </DropdownMenuItem>
+
+              <DropdownMenuItem
+                onClick={() => openDeleteDialog(diagnosis)}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       ),
     },
@@ -728,7 +746,7 @@ export default function DiagnosisPage() {
                 type="button"
                 variant="destructive"
                 size="sm"
-                onClick={() => void handleBulkDelete()}
+                onClick={openBulkDeleteDialog}
                 disabled={deleting}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
@@ -1168,11 +1186,23 @@ export default function DiagnosisPage() {
       <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        title="Delete Diagnosis?"
-        description={`Are you sure you want to delete ${deleteTarget?.diagnosisName ?? "this diagnosis"}? This will perform a soft delete and remove the record from the active diagnosis list.`}
-        confirmText={deleting ? "Deleting..." : "Delete Diagnosis"}
+        title={
+          deleteMode === "BULK"
+            ? `Delete ${selectedDiagnosisIds.length} Diagnoses?`
+            : "Delete Diagnosis?"
+        }
+        description={
+          deleteMode === "BULK"
+            ? `Are you sure you want to delete ${selectedDiagnosisIds.length} selected diagnosis ${
+                selectedDiagnosisIds.length === 1 ? "record" : "records"
+              }? This will perform a soft delete and remove them from the active diagnosis list.`
+            : `Are you sure you want to delete ${
+                deleteTarget?.diagnosisName ?? "this diagnosis"
+              }? This will perform a soft delete and remove the record from the active diagnosis list.`
+        }
+        confirmText={deleting ? "Deleting..." : "Delete"}
         cancelText="Cancel"
-        onConfirm={() => void handleDelete()}
+        onConfirm={() => (deleteMode === "BULK" ? handleBulkDelete() : handleDelete())}
         destructive
         loading={deleting}
       />
