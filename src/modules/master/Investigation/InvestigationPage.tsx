@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { SearchInput } from "@/components/common/SearchInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import * as XLSX from "xlsx";
 import {
   Select,
   SelectContent,
@@ -521,66 +522,42 @@ export default function InvestigationPage() {
       setDeleting(false);
     }
   };
-
-  const exportCsv = () => {
+  const exportExcel = () => {
     if (filteredInvestigations.length === 0) {
       toast.error("There are no investigation records to export.");
       return;
     }
 
-    const headers = [
-      "Investigation Name",
-      "Investigation Code",
-      "LOINC Code",
-      "Category",
-      "Type",
-      "Sample Type",
-      "Turnaround Time (minutes)",
-      "Status",
-      "Created Date",
+    const rows = filteredInvestigations.map((investigation) => ({
+      "Investigation Name": investigation.investigationName,
+      "Investigation Code": investigation.investigationCode,
+      "LOINC Code": investigation.loincCode ?? "",
+      Category: investigation.category ?? "",
+      Type: investigation.type ?? "",
+      "Short Name": investigation.shortName ?? "",
+      Status: investigation.status,
+      "Created Date": formatDate(investigation.createdAt),
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Investigations");
+
+    worksheet["!cols"] = [
+      { wch: 28 },
+      { wch: 18 },
+      { wch: 16 },
+      { wch: 20 },
+      { wch: 20 },
+      { wch: 18 },
+      { wch: 12 },
+      { wch: 18 },
     ];
 
-    const rows = filteredInvestigations.map((investigation) => [
-      investigation.investigationName,
-      investigation.investigationCode,
-      investigation.loincCode ?? "",
-      investigation.category,
-      investigation.type,
-      investigation.sampleType ?? "",
-      investigation.turnaroundTime ?? "",
-      investigation.status,
-      formatDate(investigation.createdAt),
-    ]);
+    XLSX.writeFile(workbook, "investigation-report.xlsx");
 
-    const csv = [headers, ...rows]
-      .map((row) =>
-        row
-          .map((value) => {
-            const text = String(value ?? "");
-
-            return `"${text.replace(/"/g, '""')}"`;
-          })
-          .join(","),
-      )
-      .join("\n");
-
-    const blob = new Blob([csv], {
-      type: "text/csv;charset=utf-8;",
-    });
-
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-
-    link.href = url;
-    link.download = "investigation-report.csv";
-
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    URL.revokeObjectURL(url);
-
-    toast.success("Investigation CSV exported successfully.");
+    toast.success("Investigation Excel file exported successfully.");
   };
 
   const printReport = () => {
@@ -789,9 +766,9 @@ export default function InvestigationPage() {
               </Button>
             )}
 
-            <Button type="button" variant="outline" size="sm" onClick={exportCsv}>
+            <Button type="button" variant="outline" size="sm" onClick={exportExcel}>
               <Download className="mr-2 h-4 w-4" />
-              Export CSV
+              Export Excel
             </Button>
 
             <Button type="button" variant="outline" size="sm" onClick={printReport}>

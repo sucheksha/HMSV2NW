@@ -1,6 +1,6 @@
 import { Search, X } from "lucide-react";
 import type { InputHTMLAttributes } from "react";
-
+import { IconButton } from "@/components/common/IconButton";
 import { Input } from "@/components/ui/input";
 
 interface SearchInputProps extends Omit<
@@ -53,28 +53,18 @@ export function SearchInput({
       />
 
       {value && (
-        <button
-          type="button"
+        <IconButton
+          iconLabel="Clear search"
+          rotateOnHover
           onClick={handleClear}
           className="
-            absolute right-2 top-1/2
-            flex h-7 w-7
-            -translate-y-1/2
-            items-center justify-center
-            rounded-md
-            text-muted-foreground
-            transition-colors
-            hover:bg-muted
-            hover:text-foreground
-            focus-visible:outline-none
-            focus-visible:ring-2
-            focus-visible:ring-primary
-          "
-          aria-label="Clear search"
-          title="Clear search"
+      absolute right-1 top-1/2
+      -translate-y-1/2
+      hover:bg-muted
+    "
         >
           <X className="h-4 w-4" />
-        </button>
+        </IconButton>
       )}
     </div>
   );

@@ -12,6 +12,7 @@ import {
   Search,
   Stethoscope,
   Trash2,
+  Loader2,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -36,7 +37,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
-
+import * as XLSX from "xlsx";
 import {
   DataTable,
   DataTablePageSize,
@@ -486,65 +487,43 @@ export default function DiagnosisPage() {
       setDeleting(false);
     }
   };
-
-  const exportCsv = () => {
+  const exportExcel = () => {
     if (filteredDiagnoses.length === 0) {
       toast.error("There are no diagnosis records to export.");
       return;
     }
 
-    const headers = [
-      "Diagnosis Name",
-      "Diagnosis Code",
-      "ICD Code",
-      "Category",
-      "Type",
-      "Short Name",
-      "Status",
-      "Created Date",
+    const rows = filteredDiagnoses.map((diagnosis) => ({
+      "Diagnosis Name": diagnosis.diagnosisName,
+      "Diagnosis Code": diagnosis.diagnosisCode,
+      "ICD Code": diagnosis.icdCode ?? "",
+      Category: diagnosis.diagnosisCategory ?? "",
+      Type: diagnosis.diagnosisType ?? "",
+      "Short Name": diagnosis.shortName ?? "",
+      Status: diagnosis.status,
+      "Created Date": formatDate(diagnosis.createdAt),
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Diagnoses");
+
+    worksheet["!cols"] = [
+      { wch: 28 },
+      { wch: 18 },
+      { wch: 16 },
+      { wch: 20 },
+      { wch: 20 },
+      { wch: 18 },
+      { wch: 12 },
+      { wch: 18 },
     ];
 
-    const rows = filteredDiagnoses.map((diagnosis) => [
-      diagnosis.diagnosisName,
-      diagnosis.diagnosisCode,
-      diagnosis.icdCode ?? "",
-      diagnosis.diagnosisCategory ?? "",
-      diagnosis.diagnosisType ?? "",
-      diagnosis.shortName ?? "",
-      diagnosis.status,
-      formatDate(diagnosis.createdAt),
-    ]);
+    XLSX.writeFile(workbook, "diagnosis-report.xlsx");
 
-    const csv = [headers, ...rows]
-      .map((row) =>
-        row
-          .map((value) => {
-            const text = String(value ?? "");
-            return `"${text.replace(/"/g, '""')}"`;
-          })
-          .join(","),
-      )
-      .join("\n");
-
-    const blob = new Blob([csv], {
-      type: "text/csv;charset=utf-8;",
-    });
-
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-
-    link.href = url;
-    link.download = "diagnosis-report.csv";
-
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    URL.revokeObjectURL(url);
-
-    toast.success("Diagnosis CSV exported successfully.");
+    toast.success("Diagnosis Excel file exported successfully.");
   };
-
   const printReport = () => {
     window.print();
   };
@@ -754,9 +733,9 @@ export default function DiagnosisPage() {
               </Button>
             )}
 
-            <Button type="button" variant="outline" size="sm" onClick={exportCsv}>
+            <Button type="button" variant="outline" size="sm" onClick={exportExcel}>
               <Download className="mr-2 h-4 w-4" />
-              Export CSV
+              Export Excel
             </Button>
 
             <Button type="button" variant="outline" size="sm" onClick={printReport}>
@@ -1181,7 +1160,86 @@ export default function DiagnosisPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* STATUS CONFIRMATION */}
+      <Dialog
+        open={statusDialogOpen}
+        onOpenChange={(open) => {
+          if (!statusChanging) {
+            setStatusDialogOpen(open);
+          }
+        }}
+      >
+        <DialogContent className="w-[calc(100%-2rem)] max-w-md rounded-2xl">
+          {statusDiagnosis && (
+            <>
+              <DialogHeader>
+                <DialogTitle>
+                  {statusDiagnosis.status === "ACTIVE"
+                    ? "Deactivate Diagnosis?"
+                    : "Activate Diagnosis?"}
+                </DialogTitle>
 
+                <DialogDescription>
+                  Are you sure you want to{" "}
+                  {statusDiagnosis.status === "ACTIVE" ? "deactivate" : "activate"}{" "}
+                  <span className="font-medium text-foreground">
+                    "{statusDiagnosis.diagnosisName}"
+                  </span>
+                  ?
+                </DialogDescription>
+              </DialogHeader>
+
+              <div
+                className={`
+                  rounded-xl border p-4
+                  ${
+                    statusDiagnosis.status === "ACTIVE"
+                      ? "border-amber-200 bg-amber-50"
+                      : "border-green-200 bg-green-50"
+                  }
+                `}
+              >
+                <p className="text-sm">
+                  {statusDiagnosis.status === "ACTIVE"
+                    ? "This diagnosis will be marked as inactive and will no longer be available as an active diagnosis."
+                    : "This diagnosis will be marked as active and will become available for active diagnosis usage again."}
+                </p>
+              </div>
+
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setStatusDialogOpen(false)}
+                  disabled={statusChanging}
+                >
+                  Cancel
+                </Button>
+
+                <Button
+                  type="button"
+                  variant={statusDiagnosis.status === "ACTIVE" ? "destructive" : "default"}
+                  onClick={handleStatusChange}
+                  disabled={statusChanging}
+                >
+                  {statusChanging ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Updating...
+                    </>
+                  ) : statusDiagnosis.status === "ACTIVE" ? (
+                    "Deactivate"
+                  ) : (
+                    "Activate"
+                  )}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* DELETE CONFIRMATION */}
       {/* DELETE CONFIRMATION */}
       <ConfirmDialog
         open={deleteDialogOpen}
