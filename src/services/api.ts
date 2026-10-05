@@ -1,6 +1,6 @@
 import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from "axios";
 const api: AxiosInstance = axios.create({
-  baseURL: "http://localhost:5000/api",
+  baseURL: import.meta.env.VITE_API_URL,
   headers: {
     "Content-Type": "application/json",
   },
@@ -82,7 +82,7 @@ api.interceptors.response.use(
         throw new Error("Refresh token not found.");
       }
       // Request new Access Token
-      const response = await axios.post("http://localhost:5000/api/auth/refresh", {
+      const response = await axios.post(`${import.meta.env.VITE_API_URL}/auth/refresh`, {
         refreshToken,
       });
       const newToken = response.data.data.token;
