@@ -47,7 +47,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-
+import { RefreshButton } from "@/components/common/RefreshButton";
 export default function DepartmentPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
@@ -851,19 +851,23 @@ export default function DepartmentPage() {
               <Trash2 className="h-4 w-4" aria-hidden="true" />
               Delete
             </Button>
+            <div className="flex items-center gap-2">
+              <RefreshButton onRefresh={() => void loadDepartments()} loading={loading} />
 
-            <Button
-              type="button"
-              onClick={handleAddDepartment}
-              disabled={deleting}
-              className="gap-2 shadow-sm"
-            >
-              <Plus className="h-4 w-4" aria-hidden="true" />
-              Add Department
-            </Button>
+              {/* Add Department button */}
+
+              <Button
+                type="button"
+                onClick={handleAddDepartment}
+                disabled={deleting}
+                className="gap-2 shadow-sm"
+              >
+                <Plus className="h-4 w-4" aria-hidden="true" />
+                Add Department
+              </Button>
+            </div>
           </div>
         </div>
-
         {/* =================================================
             SELECTION CONTROLS
         ================================================== */}

@@ -86,6 +86,11 @@ const ADMIN_NAV: NavGroup[] = [
         icon: FlaskConical,
       },
       {
+        label: "Location",
+        to: "/module/location",
+        icon: Building2,
+      },
+      {
         label: "Roles",
         to: "/module/roles",
         icon: ShieldCheck,

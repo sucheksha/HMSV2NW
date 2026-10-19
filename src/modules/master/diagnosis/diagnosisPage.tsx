@@ -62,7 +62,7 @@ import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import type { Diagnosis, DiagnosisStatus } from "./diagnosis.types";
 import { FormDialog } from "@/components/common/FormDialog";
 import { DiagnosisForm } from "./DiagnosisForm";
-
+import { RefreshButton } from "@/components/common/RefreshButton";
 const getApiErrorMessage = (error: unknown): string => {
   if (typeof error === "object" && error !== null && "response" in error) {
     const response = (
@@ -742,14 +742,18 @@ export default function DiagnosisPage() {
               <Printer className="mr-2 h-4 w-4" />
               Print Report
             </Button>
+            <div className="flex gap-2">
+              <RefreshButton onRefresh={() => void loadDiagnoses()} loading={loading} />
 
-            <Button type="button" size="sm" onClick={handleAdd}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add New Diagnosis
-            </Button>
+              {/*  Add Diagnosis button  */}
+
+              <Button type="button" size="sm" onClick={handleAdd}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add New Diagnosis
+              </Button>
+            </div>
           </div>
         </div>
-
         {/* FILTER BAR */}
         <div className="border-b border-slate-200 px-5 py-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center">

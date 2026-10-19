@@ -73,6 +73,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { InvestigationForm } from "./InvestigationForm";
 import { PageContainer } from "@/components/common/PageContainer";
+import { RefreshButton } from "@/components/common/RefreshButton";
 const getApiErrorMessage = (error: unknown): string => {
   if (typeof error === "object" && error !== null && "response" in error) {
     const response = (
@@ -775,14 +776,16 @@ export default function InvestigationPage() {
               <Printer className="mr-2 h-4 w-4" />
               Print Report
             </Button>
-
-            <Button type="button" size="sm" onClick={handleAdd}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add New Investigation
-            </Button>
+            <div className="flex items-center gap-2">
+              <RefreshButton onRefresh={() => void loadInvestigations()} loading={loading} />
+              {/*  Add Investigation button  */}
+              <Button type="button" size="sm" onClick={handleAdd}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add New Investigation
+              </Button>
+            </div>
           </div>
         </div>
-
         {/* FILTER BAR */}
         <div className="border-b border-slate-200 px-5 py-4">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
@@ -820,7 +823,6 @@ export default function InvestigationPage() {
                   </span>
                 )}
               </Button>
-
               {hasActiveFilters && (
                 <Button
                   type="button"
@@ -836,7 +838,6 @@ export default function InvestigationPage() {
               )}
             </div>
           </div>
-
           {/* FILTER PANEL */}
           {filterOpen && (
             <div className="mt-4 rounded-lg border border-slate-200 bg-muted/20 p-4">

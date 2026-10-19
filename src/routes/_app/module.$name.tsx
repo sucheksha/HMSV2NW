@@ -7,6 +7,7 @@ import { useAuth, roleHome } from "@/auth/auth";
 import DepartmentPage from "@/modules/master/department/DepartmentPage";
 import DiagnosisPage from "@/modules/master/diagnosis/diagnosisPage";
 import InvestigationPage from "@/modules/master/Investigation/InvestigationPage";
+import LocationPage from "@/modules/master/location/LocationPage.tsx";
 export const Route = createFileRoute("/_app/module/$name")({
   component: ModuleStub,
 });
@@ -32,6 +33,10 @@ function ModuleStub() {
   if (name === "investigation") {
     return <InvestigationPage />;
   }
+  if (name === "location") {
+    return <LocationPage />;
+  }
+
   const { user } = useAuth();
 
   const title = humanize(name);
