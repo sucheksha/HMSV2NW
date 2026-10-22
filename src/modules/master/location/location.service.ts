@@ -49,7 +49,7 @@ export async function updateState(
   id: string,
   payload: Partial<StateFormValues> & { isActive?: boolean },
 ) {
-  const response = await api.put(`${ENDPOINTS.states}/${id}`, payload);
+  const response = await api.patch(`${ENDPOINTS.states}/${id}`, payload);
   return unwrap<State>(response);
 }
 
@@ -73,7 +73,7 @@ export async function updateDistrict(
   id: string,
   payload: Partial<DistrictFormValues> & { isActive?: boolean },
 ) {
-  const response = await api.put(`${ENDPOINTS.districts}/${id}`, payload);
+  const response = await api.patch(`${ENDPOINTS.districts}/${id}`, payload);
   return unwrap<District>(response);
 }
 
@@ -97,7 +97,7 @@ export async function updateTaluka(
   id: string,
   payload: Partial<TalukaFormValues> & { isActive?: boolean },
 ) {
-  const response = await api.put(`${ENDPOINTS.talukas}/${id}`, payload);
+  const response = await api.patch(`${ENDPOINTS.talukas}/${id}`, payload);
   return unwrap<Taluka>(response);
 }
 

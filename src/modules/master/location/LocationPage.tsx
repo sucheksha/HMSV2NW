@@ -483,7 +483,7 @@ export default function LocationPage() {
             </p>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 ">
             <RefreshButton onRefresh={() => void loadData()} loading={loading} />
 
             <Button onClick={openAddForm}>
@@ -500,6 +500,8 @@ export default function LocationPage() {
             value={totalCount}
             description="Total location records"
             icon={MapPin}
+            className="border-sky-200 bg-sky-50/60"
+            iconClassName="bg-sky-100 text-sky-600"
           />
 
           <KpiCard
@@ -507,6 +509,8 @@ export default function LocationPage() {
             value={activeCount}
             description="Currently active records"
             icon={CheckCircle2}
+            className="border-emerald-200 bg-emerald-50/60"
+            iconClassName="bg-emerald-100 text-emerald-600"
           />
 
           <KpiCard
@@ -514,11 +518,13 @@ export default function LocationPage() {
             value={inactiveCount}
             description="Currently inactive records"
             icon={XCircle}
+            className="border-rose-200 bg-rose-50/60"
+            iconClassName="bg-rose-100 text-rose-600"
           />
         </div>
 
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as LocationTab)}>
-          <TabsList className="grid h-auto w-full grid-cols-3 sm:w-[420px]">
+          <TabsList className="grid h-auto w-full grid-cols-3 sm:w-[420px] bg-yellow-50 text-brown-700 border border-yellow-200 rounded-md">
             <TabsTrigger value="states">States</TabsTrigger>
             <TabsTrigger value="districts">Districts</TabsTrigger>
             <TabsTrigger value="talukas">Talukas</TabsTrigger>

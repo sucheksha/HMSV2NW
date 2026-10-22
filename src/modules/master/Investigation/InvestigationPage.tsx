@@ -686,16 +686,18 @@ export default function InvestigationPage() {
   return (
     <PageContainer>
       {/* PAGE HEADER */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary ">
             <FlaskConical className="h-5 w-5" />
           </div>
 
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Investigation Management</h1>
+            <h1 className="text-2xl font-semibold tracking-tight bg-zinc-50 border-zinc-200">
+              Investigation Management
+            </h1>
 
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground ">
               Manage investigation and diagnostic test master data.
             </p>
           </div>
