@@ -1,17 +1,35 @@
+
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { MapPin, CheckCircle2, XCircle, Plus, RefreshCw, Pencil, Trash2 } from "lucide-react";
+import {
+  MapPin,
+  CheckCircle2,
+  XCircle,
+  Plus,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { PageContainer } from "@/components/common/PageContainer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DataTable, DataTablePageSize, DataTablePagination } from "@/components/common/DataTable";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import {
+  DataTable,
+  DataTablePageSize,
+  DataTablePagination,
+} from "@/components/common/DataTable";
 import type { DataTableColumn } from "@/components/common/DataTable";
 import { KpiCard } from "@/components/common/KpiCard/KpiCard";
 import { SearchInput } from "@/components/common/SearchInput";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { RefreshButton } from "@/components/common/RefreshButton";
+
 import StateForm from "./StateForm";
 import DistrictForm from "./DistrictForm";
 import TalukaForm from "./TalukaForm";
@@ -33,12 +51,14 @@ import type { State, District, Taluka } from "./location.types";
 type LocationTab = "states" | "districts" | "talukas";
 type StatusFilter = "all" | "active" | "inactive";
 
-function getRelationId(value: string | State | District): string {
+function getRelationId(
+  value: string | State | District | null | undefined,
+): string {
   return typeof value === "string" ? value : (value?._id ?? "");
 }
 
 function getRelationName(
-  value: string | State | District,
+  value: string | State | District | null | undefined,
   records: Array<State | District>,
 ): string {
   if (typeof value !== "string") {
@@ -50,7 +70,9 @@ function getRelationName(
 
 function StatusBadge({ isActive }: { isActive: boolean }) {
   return (
-    <Badge variant={isActive ? "default" : "secondary"}>{isActive ? "Active" : "Inactive"}</Badge>
+    <Badge variant={isActive ? "default" : "secondary"}>
+      {isActive ? "Active" : "Inactive"}
+    </Badge>
   );
 }
 
@@ -61,10 +83,16 @@ export default function LocationPage() {
   const [districts, setDistricts] = useState<District[]>([]);
   const [talukas, setTalukas] = useState<Taluka[]>([]);
 
+  const [talukaTotal, setTalukaTotal] = useState(0);
+  const [talukaTotalPages, setTalukaTotalPages] = useState(1);
+
   const [loading, setLoading] = useState(false);
+  const [referenceLoading, setReferenceLoading] = useState(false);
   const [loadError, setLoadError] = useState("");
 
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [stateFilter, setStateFilter] = useState("");
   const [districtFilter, setDistrictFilter] = useState("");
@@ -87,21 +115,22 @@ export default function LocationPage() {
     type: LocationTab;
   } | null>(null);
   const [deleting, setDeleting] = useState(false);
+
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [statusChanging, setStatusChanging] = useState(false);
-
   const [statusItem, setStatusItem] = useState<{
     id: string;
     name: string;
     type: LocationTab;
     isActive: boolean;
   } | null>(null);
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setLoadError("");
+
+  // Load reference data separately. This is not repeated on every Taluka page.
+  const loadReferenceData = useCallback(async () => {
+    setReferenceLoading(true);
 
     try {
-      const [stateRows, districtRows, talukaRows] = await Promise.all([
+      const [stateRows, districtRows] = await Promise.all([
         getStates({
           page: 1,
           limit: 1000,
@@ -114,41 +143,115 @@ export default function LocationPage() {
           sortBy: "name",
           sortOrder: "asc",
         }),
-        getTalukas({
-          page: 1,
-          limit: 1000,
-          sortBy: "name",
-          sortOrder: "asc",
-        }),
       ]);
 
       setStates(stateRows);
       setDistricts(districtRows);
-      setTalukas(talukaRows);
     } catch (error: any) {
-      const message = error?.response?.data?.message ?? "Unable to load location records.";
+      const message =
+        error?.response?.data?.message ??
+        "Unable to load States and Districts.";
+
+      setLoadError(message);
+      toast.error(message);
+    } finally {
+      setReferenceLoading(false);
+    }
+  }, []);
+
+  // Debounce search so the API is not called on every keystroke.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search.trim());
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  // Fetch only the requested Taluka page. Filtering happens on the backend.
+  const loadTalukas = useCallback(async () => {
+    setLoading(true);
+    setLoadError("");
+
+    try {
+      const result = await getTalukas({
+        page,
+        limit: pageSize,
+        sortBy: "name",
+        sortOrder: "asc",
+        ...(debouncedSearch ? { search: debouncedSearch } : {}),
+        ...(statusFilter !== "all"
+          ? { isActive: statusFilter === "active" }
+          : {}),
+        ...(districtFilter ? { district: districtFilter } : {}),
+      });
+
+      // If records were deleted and the current page no longer exists,
+      // move to the last available page and fetch it.
+      if (result.totalPages > 0 && page > result.totalPages) {
+        setPage(result.totalPages);
+        return;
+      }
+
+      setTalukas(result.talukas);
+      setTalukaTotal(result.total);
+      setTalukaTotalPages(Math.max(1, result.totalPages));
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ??
+        error?.message ??
+        "Unable to load Talukas.";
 
       setLoadError(message);
       toast.error(message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, pageSize, debouncedSearch, statusFilter, districtFilter]);
 
   useEffect(() => {
-    void loadData();
-  }, [loadData]);
+    void loadReferenceData();
+  }, [loadReferenceData]);
 
   useEffect(() => {
-    setPage(1);
-  }, [activeTab, search, statusFilter, stateFilter, districtFilter, pageSize]);
+    void loadTalukas();
+  }, [loadTalukas]);
 
-  useEffect(() => {
+  function handleTabChange(value: string) {
+    const nextTab = value as LocationTab;
+
+    setActiveTab(nextTab);
     setSearch("");
+    setDebouncedSearch("");
     setStatusFilter("all");
     setStateFilter("");
     setDistrictFilter("");
-  }, [activeTab]);
+    setPage(1);
+  }
+
+  function handleSearchChange(value: string) {
+    setSearch(value);
+    setPage(1);
+  }
+
+  function handleStatusFilterChange(value: string) {
+    setStatusFilter(value as StatusFilter);
+    setPage(1);
+  }
+
+  function handleDistrictFilterChange(value: string) {
+    setDistrictFilter(value);
+    setPage(1);
+  }
+
+  function handlePageSizeChange(value: number) {
+    setPageSize(value);
+    setPage(1);
+  }
+
+  async function refreshData() {
+    await Promise.all([loadReferenceData(), loadTalukas()]);
+  }
 
   const filteredStates = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -179,53 +282,51 @@ export default function LocationPage() {
         (statusFilter === "active" && district.isActive) ||
         (statusFilter === "inactive" && !district.isActive);
 
-      const matchesState = !stateFilter || getRelationId(district.state) === stateFilter;
+      const matchesState =
+        !stateFilter || getRelationId(district.state) === stateFilter;
 
       return matchesSearch && matchesStatus && matchesState;
     });
   }, [districts, search, statusFilter, stateFilter]);
 
-  const filteredTalukas = useMemo(() => {
-    const query = search.trim().toLowerCase();
-
-    return talukas.filter((taluka) => {
-      const matchesSearch = !query || taluka.name.toLowerCase().includes(query);
-
-      const matchesStatus =
-        statusFilter === "all" ||
-        (statusFilter === "active" && taluka.isActive) ||
-        (statusFilter === "inactive" && !taluka.isActive);
-
-      const matchesDistrict = !districtFilter || getRelationId(taluka.district) === districtFilter;
-
-      return matchesSearch && matchesStatus && matchesDistrict;
-    });
-  }, [talukas, search, statusFilter, districtFilter]);
-
+  // Talukas are already filtered and paginated by the backend.
   const records =
     activeTab === "states"
       ? filteredStates
       : activeTab === "districts"
         ? filteredDistricts
-        : filteredTalukas;
+        : talukas;
 
   const totalCount =
     activeTab === "states"
       ? states.length
       : activeTab === "districts"
         ? districts.length
-        : talukas.length;
+        : talukaTotal;
 
   const activeCount =
     activeTab === "states"
       ? states.filter((item) => item.isActive).length
       : activeTab === "districts"
         ? districts.filter((item) => item.isActive).length
-        : talukas.filter((item) => item.isActive).length;
+        : null;
 
-  const inactiveCount = totalCount - activeCount;
-  const totalPages = Math.max(1, Math.ceil(records.length / pageSize));
-  const paginatedRecords = records.slice((page - 1) * pageSize, page * pageSize);
+  const inactiveCount =
+    activeTab === "states"
+      ? states.filter((item) => !item.isActive).length
+      : activeTab === "districts"
+        ? districts.filter((item) => !item.isActive).length
+        : null;
+
+  const totalPages =
+    activeTab === "talukas"
+      ? talukaTotalPages
+      : Math.max(1, Math.ceil(records.length / pageSize));
+
+  const paginatedRecords =
+    activeTab === "talukas"
+      ? records
+      : records.slice((page - 1) * pageSize, page * pageSize);
 
   function openAddForm() {
     if (activeTab === "states") {
@@ -263,14 +364,27 @@ export default function LocationPage() {
       setDeleteDialogOpen(false);
       setDeletingItem(null);
 
-      await loadData();
+      if (deletingItem.type === "talukas") {
+        await loadTalukas();
+      } else {
+        await loadReferenceData();
+      }
     } catch (error: any) {
-      toast.error(error?.response?.data?.message ?? `Unable to delete ${deletingItem.name}.`);
+      toast.error(
+        error?.response?.data?.message ??
+          `Unable to delete ${deletingItem.name}.`,
+      );
     } finally {
       setDeleting(false);
     }
   }
-  function requestStatusChange(type: LocationTab, id: string, name: string, isActive: boolean) {
+
+  function requestStatusChange(
+    type: LocationTab,
+    id: string,
+    name: string,
+    isActive: boolean,
+  ) {
     setStatusItem({ type, id, name, isActive });
     setStatusDialogOpen(true);
   }
@@ -298,15 +412,21 @@ export default function LocationPage() {
       setStatusDialogOpen(false);
       setStatusItem(null);
 
-      await loadData();
+      if (statusItem.type === "talukas") {
+        await loadTalukas();
+      } else {
+        await loadReferenceData();
+      }
     } catch (error: any) {
       toast.error(
-        error?.response?.data?.message ?? `Unable to update the status of ${statusItem.name}.`,
+        error?.response?.data?.message ??
+          `Unable to update the status of ${statusItem.name}.`,
       );
     } finally {
       setStatusChanging(false);
     }
   }
+
   const stateColumns: DataTableColumn<State>[] = [
     {
       key: "name",
@@ -324,7 +444,9 @@ export default function LocationPage() {
       render: (row) => (
         <button
           type="button"
-          onClick={() => requestStatusChange("states", row._id, row.name, row.isActive)}
+          onClick={() =>
+            requestStatusChange("states", row._id, row.name, row.isActive)
+          }
           className="cursor-pointer"
           title="Change status"
         >
@@ -348,7 +470,6 @@ export default function LocationPage() {
           >
             <Pencil className="h-4 w-4" />
           </Button>
-
           <Button
             variant="ghost"
             size="icon"
@@ -379,7 +500,9 @@ export default function LocationPage() {
       render: (row) => (
         <button
           type="button"
-          onClick={() => requestStatusChange("districts", row._id, row.name, row.isActive)}
+          onClick={() =>
+            requestStatusChange("districts", row._id, row.name, row.isActive)
+          }
           className="cursor-pointer"
           title="Change status"
         >
@@ -403,7 +526,6 @@ export default function LocationPage() {
           >
             <Pencil className="h-4 w-4" />
           </Button>
-
           <Button
             variant="ghost"
             size="icon"
@@ -434,7 +556,9 @@ export default function LocationPage() {
       render: (row) => (
         <button
           type="button"
-          onClick={() => requestStatusChange("talukas", row._id, row.name, row.isActive)}
+          onClick={() =>
+            requestStatusChange("talukas", row._id, row.name, row.isActive)
+          }
           className="cursor-pointer"
           title="Change status"
         >
@@ -458,7 +582,6 @@ export default function LocationPage() {
           >
             <Pencil className="h-4 w-4" />
           </Button>
-
           <Button
             variant="ghost"
             size="icon"
@@ -472,59 +595,90 @@ export default function LocationPage() {
     },
   ];
 
+  const displayedCount =
+    activeTab === "talukas"
+      ? talukaTotal
+      : records.length;
+
+  const rangeStart =
+    displayedCount === 0 ? 0 : (page - 1) * pageSize + 1;
+
+  const rangeEnd =
+    activeTab === "talukas"
+      ? Math.min(page * pageSize, talukaTotal)
+      : Math.min(page * pageSize, records.length);
+
   return (
     <PageContainer>
       <div className="space-y-6">
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Location Master</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Location Master
+            </h1>
             <p className="mt-1 text-sm text-muted-foreground">
               Manage states, districts, and talukas.
             </p>
           </div>
 
-          <div className="flex gap-2 ">
-            <RefreshButton onRefresh={() => void loadData()} loading={loading} />
-
+          <div className="flex gap-2">
+            <RefreshButton
+              onRefresh={() => void refreshData()}
+              loading={loading || referenceLoading}
+            />
             <Button onClick={openAddForm}>
               <Plus className="mr-2 h-4 w-4" />
               Add{" "}
-              {activeTab === "states" ? "State" : activeTab === "districts" ? "District" : "Taluka"}
+              {activeTab === "states"
+                ? "State"
+                : activeTab === "districts"
+                  ? "District"
+                  : "Taluka"}
             </Button>
           </div>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-3">
           <KpiCard
-            title="Total"
+            title={activeTab === "talukas" ? "Matching" : "Total"}
             value={totalCount}
-            description="Total location records"
+            description={
+              activeTab === "talukas"
+                ? "Talukas matching current filters"
+                : "Total location records"
+            }
             icon={MapPin}
             className="border-sky-200 bg-sky-50/60"
             iconClassName="bg-sky-100 text-sky-600"
           />
-
           <KpiCard
             title="Active"
-            value={activeCount}
-            description="Currently active records"
+            value={activeCount ?? "—"}
+            description={
+              activeTab === "talukas"
+                ? "Overall count not provided by API"
+                : "Currently active records"
+            }
             icon={CheckCircle2}
             className="border-emerald-200 bg-emerald-50/60"
             iconClassName="bg-emerald-100 text-emerald-600"
           />
-
           <KpiCard
             title="Inactive"
-            value={inactiveCount}
-            description="Currently inactive records"
+            value={inactiveCount ?? "—"}
+            description={
+              activeTab === "talukas"
+                ? "Overall count not provided by API"
+                : "Currently inactive records"
+            }
             icon={XCircle}
             className="border-rose-200 bg-rose-50/60"
             iconClassName="bg-rose-100 text-rose-600"
           />
         </div>
 
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as LocationTab)}>
-          <TabsList className="grid h-auto w-full grid-cols-3 sm:w-[420px] bg-yellow-50 text-brown-700 border border-yellow-200 rounded-md">
+        <Tabs value={activeTab} onValueChange={handleTabChange}>
+          <TabsList className="grid h-auto w-full grid-cols-3 rounded-md border border-yellow-200 bg-yellow-50 text-brown-700 sm:w-[420px]">
             <TabsTrigger value="states">States</TabsTrigger>
             <TabsTrigger value="districts">Districts</TabsTrigger>
             <TabsTrigger value="talukas">Talukas</TabsTrigger>
@@ -534,14 +688,14 @@ export default function LocationPage() {
             <div className="w-full lg:max-w-sm">
               <SearchInput
                 value={search}
-                onChange={setSearch}
+                onChange={handleSearchChange}
                 placeholder={`Search ${activeTab}...`}
               />
             </div>
 
             <select
               value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
+              onChange={(event) => handleStatusFilterChange(event.target.value)}
               className="h-10 rounded-md border border-input bg-background px-3 text-sm"
               aria-label="Filter by status"
             >
@@ -553,7 +707,10 @@ export default function LocationPage() {
             {activeTab === "districts" && (
               <select
                 value={stateFilter}
-                onChange={(event) => setStateFilter(event.target.value)}
+                onChange={(event) => {
+                  setStateFilter(event.target.value);
+                  setPage(1);
+                }}
                 className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                 aria-label="Filter by state"
               >
@@ -569,9 +726,12 @@ export default function LocationPage() {
             {activeTab === "talukas" && (
               <select
                 value={districtFilter}
-                onChange={(event) => setDistrictFilter(event.target.value)}
+                onChange={(event) =>
+                  handleDistrictFilterChange(event.target.value)
+                }
                 className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                 aria-label="Filter by district"
+                disabled={referenceLoading}
               >
                 <option value="">All districts</option>
                 {districts.map((district) => (
@@ -583,20 +743,29 @@ export default function LocationPage() {
             )}
 
             <p className="text-sm text-muted-foreground lg:ml-auto">
-              Showing {records.length} records
+              Showing {rangeStart}–{rangeEnd} of {displayedCount} records
             </p>
           </div>
 
           {loadError && (
             <div className="mt-4 rounded-lg border border-destructive/30 p-4">
               <p className="text-sm text-destructive">{loadError}</p>
-              <Button className="mt-2" variant="outline" size="sm" onClick={() => void loadData()}>
+              <Button
+                className="mt-2"
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  activeTab === "talukas"
+                    ? void loadTalukas()
+                    : void loadReferenceData()
+                }
+              >
                 Retry
               </Button>
             </div>
           )}
 
-          {loading ? (
+          {loading || (activeTab !== "talukas" && referenceLoading) ? (
             <p className="py-10 text-center text-sm text-muted-foreground">
               Loading location records...
             </p>
@@ -632,7 +801,7 @@ export default function LocationPage() {
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <DataTablePageSize
                   value={pageSize}
-                  onChange={setPageSize}
+                  onChange={handlePageSizeChange}
                   options={[10, 25, 50, 100]}
                 />
 
@@ -651,21 +820,21 @@ export default function LocationPage() {
         open={stateFormOpen}
         onOpenChange={setStateFormOpen}
         editingState={editingState}
-        onSaved={() => void loadData()}
+        onSaved={() => void loadReferenceData()}
       />
 
       <DistrictForm
         open={districtFormOpen}
         onOpenChange={setDistrictFormOpen}
         editingDistrict={editingDistrict}
-        onSaved={() => void loadData()}
+        onSaved={() => void loadReferenceData()}
       />
 
       <TalukaForm
         open={talukaFormOpen}
         onOpenChange={setTalukaFormOpen}
         editingTaluka={editingTaluka}
-        onSaved={() => void loadData()}
+        onSaved={() => void loadTalukas()}
       />
 
       <ConfirmDialog
@@ -683,18 +852,20 @@ export default function LocationPage() {
         loading={deleting}
         onConfirm={confirmDelete}
       />
+
       <ConfirmDialog
         open={statusDialogOpen}
         onOpenChange={(open) => {
           if (!statusChanging) {
             setStatusDialogOpen(open);
-
-            if (!open) {
-              setStatusItem(null);
-            }
+            if (!open) setStatusItem(null);
           }
         }}
-        title={statusItem?.isActive ? "Deactivate Location Record" : "Activate Location Record"}
+        title={
+          statusItem?.isActive
+            ? "Deactivate Location Record"
+            : "Activate Location Record"
+        }
         description={
           statusItem
             ? `Are you sure you want to ${

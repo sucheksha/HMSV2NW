@@ -82,10 +82,50 @@ export async function deleteDistrict(id: string) {
   return unwrap<unknown>(response);
 }
 
-// Talukas
-export async function getTalukas(params: TalukaListParams = {}) {
+// Talukas — paginated response
+export interface PaginatedTalukas {
+  talukas: Taluka[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export async function getTalukas(params: TalukaListParams = {}): Promise<PaginatedTalukas> {
   const response = await api.get(ENDPOINTS.talukas, { params });
-  return unwrapList<Taluka>(response);
+  const result = unwrap<any>(response);
+
+  // Fail clearly if the API response shape is unexpected.
+  // Returning an empty list silently could hide a backend/API issue.
+  if (!result || !Array.isArray(result.talukas)) {
+    throw new Error("Unexpected response while loading Talukas.");
+  }
+
+  const total = Number(result.total ?? 0);
+  const page = Number(result.page ?? params.page ?? 1);
+  const limit = Number(result.limit ?? params.limit ?? 10);
+  const totalPages = Number(result.totalPages ?? (limit > 0 ? Math.ceil(total / limit) : 0));
+
+  if (
+    !Number.isFinite(total) ||
+    !Number.isFinite(page) ||
+    !Number.isFinite(limit) ||
+    !Number.isFinite(totalPages) ||
+    total < 0 ||
+    page < 1 ||
+    limit < 1 ||
+    totalPages < 0
+  ) {
+    throw new Error("Invalid pagination metadata returned for Talukas.");
+  }
+
+  return {
+    talukas: result.talukas as Taluka[],
+    total,
+    page,
+    limit,
+    totalPages,
+  };
 }
 
 export async function createTaluka(payload: TalukaFormValues) {
