@@ -7,7 +7,9 @@ import { useAuth, roleHome } from "@/auth/auth";
 import DepartmentPage from "@/modules/master/department/DepartmentPage";
 import DiagnosisPage from "@/modules/master/diagnosis/diagnosisPage";
 import InvestigationPage from "@/modules/master/Investigation/InvestigationPage";
-import LocationPage from "@/modules/master/location/LocationPage.tsx";
+import LocationPage from "@/modules/master/location/LocationPage";
+import RolePage from "@/modules/master/roles/RolePage";
+
 export const Route = createFileRoute("/_app/module/$name")({
   component: ModuleStub,
 });
@@ -30,11 +32,17 @@ function ModuleStub() {
   if (name === "diagnosis") {
     return <DiagnosisPage />;
   }
+
   if (name === "investigation") {
     return <InvestigationPage />;
   }
+
   if (name === "location") {
     return <LocationPage />;
+  }
+
+  if (name === "roles") {
+    return <RolePage />;
   }
 
   const { user } = useAuth();
@@ -42,35 +50,40 @@ function ModuleStub() {
   const title = humanize(name);
 
   return (
-    <>
-      <main className="flex flex-1 items-center justify-center px-6 py-16">
-        <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-10 text-center shadow-[var(--shadow-card)]">
-          <div className="mx-auto mb-5 grid h-14 w-14 place-items-center rounded-2xl bg-accent/10 text-accent">
-            <Construction className="h-6 w-6" />
-          </div>
+    <main className="flex flex-1 items-center justify-center px-6 py-16">
+      <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-10 text-center shadow-[var(--shadow-card)]">
+        <div className="mx-auto mb-5 grid h-14 w-14 place-items-center rounded-2xl bg-accent/10 text-accent">
+          <Construction className="h-6 w-6" />
+        </div>
 
-          <h2 className="text-xl font-semibold text-foreground">{title}</h2>
+        <h2 className="text-xl font-semibold text-foreground">{title}</h2>
 
-          <p className="mt-2 text-sm text-muted-foreground">
-            This module's full workspace is being wired up. The navigation, permissions and layout
-            are ready — production APIs and workflows plug in next.
-          </p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          This module's full workspace is being wired up. The navigation, permissions and layout are
+          ready — production APIs and workflows plug in next.
+        </p>
 
-          <div className="mt-6 flex items-center justify-center gap-2">
-            <Button variant="secondary" size="sm" asChild>
-              <Link to={user ? roleHome(user.role) : "/"}>
+        <div className="mt-6 flex items-center justify-center gap-2">
+          <Button variant="secondary" size="sm" asChild>
+            {user ? (
+              <Link to={roleHome(user.role) as "/"}>
                 <ArrowLeft className="h-4 w-4" />
                 Back to dashboard
               </Link>
-            </Button>
+            ) : (
+              <Link to="/">
+                <ArrowLeft className="h-4 w-4" />
+                Back to dashboard
+              </Link>
+            )}
+          </Button>
 
-            <Button size="sm" className="gap-1.5">
-              <Sparkles className="h-4 w-4" />
-              Request early access
-            </Button>
-          </div>
+          <Button size="sm" className="gap-1.5">
+            <Sparkles className="h-4 w-4" />
+            Request early access
+          </Button>
         </div>
-      </main>
-    </>
+      </div>
+    </main>
   );
 }
