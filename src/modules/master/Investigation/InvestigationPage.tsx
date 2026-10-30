@@ -13,6 +13,7 @@ import {
   Search,
   Trash2,
   X,
+  FileDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { SearchInput } from "@/components/common/SearchInput";
@@ -34,6 +35,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -48,6 +50,8 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { downloadTablePDF } from "@/components/common/pdfExport";
+import { DataTableSkeleton } from "@/components/common/DataTable/DataTableSkeleton";
 import {
   DataTable,
   DataTablePageSize,
@@ -535,7 +539,9 @@ export default function InvestigationPage() {
       "LOINC Code": investigation.loincCode ?? "",
       Category: investigation.category ?? "",
       Type: investigation.type ?? "",
-      "Short Name": investigation.shortName ?? "",
+      "Sample Type": investigation.sampleType ?? "",
+      "Turnaround Time (Minutes)": investigation.turnaroundTime ?? "",
+      Description: investigation.description ?? "",
       Status: investigation.status,
       "Created Date": formatDate(investigation.createdAt),
     }));
@@ -560,7 +566,80 @@ export default function InvestigationPage() {
 
     toast.success("Investigation Excel file exported successfully.");
   };
+  const exportPDF = () => {
+    if (investigations.length === 0) {
+      toast.error("No investigation records available to download.");
+      return;
+    }
 
+    try {
+      downloadTablePDF<Investigation>({
+        title: "Investigation Management Report",
+        fileName: "investigation-report",
+        orientation: "landscape",
+
+        columns: [
+          {
+            header: "Sr. No.",
+            value: (item: Investigation) => {
+              const index = investigations.findIndex(
+                (investigation) => investigation._id === item._id,
+              );
+
+              return index + 1;
+            },
+          },
+          {
+            header: "Investigation Name",
+            value: (item: Investigation) => item.investigationName,
+          },
+          {
+            header: "Investigation Code",
+            value: (item: Investigation) => item.investigationCode,
+          },
+          {
+            header: "LOINC Code",
+            value: (item: Investigation) => item.loincCode,
+          },
+          {
+            header: "Category",
+            value: (item: Investigation) => item.category,
+          },
+          {
+            header: "Type",
+            value: (item: Investigation) => item.type,
+          },
+          {
+            header: "Sample Type",
+            value: (item: Investigation) => item.sampleType,
+          },
+          {
+            header: "Turnaround Time",
+            value: (item: Investigation) =>
+              item.turnaroundTime != null ? `${item.turnaroundTime} minutes` : "-",
+          },
+          {
+            header: "Status",
+            value: (item: Investigation) => item.status,
+          },
+          {
+            header: "Created By",
+            value: (item: Investigation) => item.createdBy,
+          },
+          {
+            header: "Created Date",
+            value: (item: Investigation) => formatDate(item.createdAt),
+          },
+        ],
+
+        rows: investigations,
+      });
+
+      toast.success("Investigation PDF downloaded successfully.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to generate investigation PDF.");
+    }
+  };
   const printReport = () => {
     window.print();
   };
@@ -579,7 +658,7 @@ export default function InvestigationPage() {
     },
     {
       key: "number",
-      header: "#",
+      header: "S.No.",
       render: (investigation) => {
         const index = filteredInvestigations.findIndex((item) => item._id === investigation._id);
 
@@ -685,627 +764,650 @@ export default function InvestigationPage() {
 
   return (
     <PageContainer>
-      {/* PAGE HEADER */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary ">
-            <FlaskConical className="h-5 w-5" />
-          </div>
+      {loading && investigations.length === 0 ? (
+        <DataTableSkeleton rows={8} columns={9} statCards={4} showHeader showToolbar />
+      ) : (
+        <div className="print-area space-y-6">
+          {/* PAGE HEADER */}
 
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight bg-zinc-50 border-zinc-200">
-              Investigation Management
-            </h1>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary ">
+                <FlaskConical className="h-5 w-5" />
+              </div>
 
-            <p className="text-sm text-muted-foreground ">
-              Manage investigation and diagnostic test master data.
-            </p>
-          </div>
-        </div>
-      </div>
+              <div>
+                <h1 className="text-2xl font-semibold tracking-tight bg-zinc-50 border-zinc-200">
+                  Investigation Management
+                </h1>
 
-      {/* KPI CARDS */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard
-          title="Total Investigations"
-          value={totalInvestigations}
-          description="All investigation records"
-          icon={FileText}
-          className="border-sky-200 bg-sky-50/60"
-          iconClassName="bg-sky-100 text-sky-600"
-        />
-
-        <KpiCard
-          title="Active"
-          value={activeInvestigations}
-          description="Currently active"
-          icon={Activity}
-          className="border-emerald-200 bg-emerald-50/60"
-          iconClassName="bg-emerald-100 text-emerald-600"
-        />
-
-        <KpiCard
-          title="Inactive"
-          value={inactiveInvestigations}
-          description="Currently inactive"
-          icon={X}
-          className="border-rose-200 bg-rose-50/60"
-          iconClassName="bg-rose-100 text-rose-600"
-        />
-
-        <KpiCard
-          title="Total Sample Types"
-          value={totalSampleTypes}
-          description="Records with sample type"
-          icon={FlaskConical}
-          className="border-violet-200 bg-violet-50/60"
-          iconClassName="bg-violet-100 text-violet-600"
-        />
-      </div>
-
-      {/* INVESTIGATION LIST */}
-      <section className="overflow-hidden rounded-xl border border-slate-200 bg-background shadow-sm">
-        {/* LIST HEADER */}
-        <div className="flex flex-col gap-4 border-b border-slate-200 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold">Investigation List</h2>
-
-            <p className="text-sm text-muted-foreground">
-              Total Records: {filteredInvestigations.length}
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            {selectedInvestigationIds.length > 0 && (
-              <Button
-                type="button"
-                variant="destructive"
-                size="sm"
-                onClick={openBulkDeleteDialog}
-                disabled={deleting}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete Selected ({selectedInvestigationIds.length})
-              </Button>
-            )}
-
-            <Button type="button" variant="outline" size="sm" onClick={exportExcel}>
-              <Download className="mr-2 h-4 w-4" />
-              Export Excel
-            </Button>
-
-            <Button type="button" variant="outline" size="sm" onClick={printReport}>
-              <Printer className="mr-2 h-4 w-4" />
-              Print Report
-            </Button>
-            <div className="flex items-center gap-2">
-              <RefreshButton onRefresh={() => void loadInvestigations()} loading={loading} />
-              {/*  Add Investigation button  */}
-              <Button type="button" size="sm" onClick={handleAdd}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add New Investigation
-              </Button>
+                <p className="text-sm text-muted-foreground ">
+                  Manage investigation and diagnostic test master data.
+                </p>
+              </div>
             </div>
           </div>
-        </div>
-        {/* FILTER BAR */}
-        <div className="border-b border-slate-200 px-5 py-4">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-            {/* SEARCH */}
-            <SearchInput
-              value={search}
-              onChange={setSearch}
-              onClear={clearSearch}
-              placeholder="Search by name, code..."
-              containerClassName="lg:max-w-md"
+
+          {/* KPI CARDS */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <KpiCard
+              title="Total Investigations"
+              value={totalInvestigations}
+              description="All investigation records"
+              icon={FileText}
+              className="border-sky-200 bg-sky-50/60"
+              iconClassName="bg-sky-100 text-sky-600"
             />
 
-            {/* FILTER BUTTON */}
-            <div className="flex items-center gap-1">
+            <KpiCard
+              title="Active"
+              value={activeInvestigations}
+              description="Currently active"
+              icon={Activity}
+              className="border-emerald-200 bg-emerald-50/60"
+              iconClassName="bg-emerald-100 text-emerald-600"
+            />
+
+            <KpiCard
+              title="Inactive"
+              value={inactiveInvestigations}
+              description="Currently inactive"
+              icon={X}
+              className="border-rose-200 bg-rose-50/60"
+              iconClassName="bg-rose-100 text-rose-600"
+            />
+
+            <KpiCard
+              title="Total Sample Types"
+              value={totalSampleTypes}
+              description="Records with sample type"
+              icon={FlaskConical}
+              className="border-violet-200 bg-violet-50/60"
+              iconClassName="bg-violet-100 text-violet-600"
+            />
+          </div>
+
+          {/* INVESTIGATION LIST */}
+          <section className="overflow-hidden rounded-xl border border-slate-200 bg-background shadow-sm">
+            {/* LIST HEADER */}
+            <div className="flex flex-col gap-4 border-b border-slate-200 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">Investigation List</h2>
+
+                <p className="text-sm text-muted-foreground">
+                  Total Records: {filteredInvestigations.length}
+                </p>
+              </div>
+
+              <div className="print-hide flex flex-wrap items-center gap-2">
+                {selectedInvestigationIds.length > 0 && (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    onClick={openBulkDeleteDialog}
+                    disabled={deleting}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete Selected ({selectedInvestigationIds.length})
+                  </Button>
+                )}
+
+                <Button type="button" variant="outline" size="sm" onClick={exportExcel}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Export Excel
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={exportPDF}
+                  disabled={loading || investigations.length === 0}
+                >
+                  <FileDown className="mr-2 h-4 w-4" />
+                  Download PDF
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={printReport}>
+                  <Printer className="mr-2 h-4 w-4" />
+                  Print Report
+                </Button>
+                <div className="flex items-center gap-2">
+                  <RefreshButton onRefresh={() => void loadInvestigations()} loading={loading} />
+                  {/*  Add Investigation button  */}
+                  <Button type="button" size="sm" onClick={handleAdd}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add New Investigation
+                  </Button>
+                </div>
+              </div>
+            </div>
+            {/* FILTER BAR */}
+            <div className="print-hide border-b border-slate-200 px-5 py-4">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                {/* SEARCH */}
+                <SearchInput
+                  value={search}
+                  onChange={setSearch}
+                  onClear={clearSearch}
+                  placeholder="Search by name, code..."
+                  containerClassName="lg:max-w-md"
+                />
+
+                {/* FILTER BUTTON */}
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setFilterOpen((current) => !current)}
+                    className="shrink-0"
+                  >
+                    <Filter className="mr-2 h-4 w-4" />
+                    Filters
+                    {hasActiveFilters && (
+                      <span className="ml-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground">
+                        {
+                          [
+                            statusFilter !== "ALL",
+                            categoryFilter !== "ALL",
+                            typeFilter !== "ALL",
+                            sampleTypeFilter !== "ALL",
+                            Boolean(fromDate),
+                            Boolean(toDate),
+                          ].filter(Boolean).length
+                        }
+                      </span>
+                    )}
+                  </Button>
+                  {hasActiveFilters && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      title="Clear all filters"
+                      aria-label="Clear all filters"
+                      onClick={closeAndClearFilters}
+                      className="h-9 w-9 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+              {/* FILTER PANEL */}
+              {filterOpen && (
+                <div className="mt-4 rounded-lg border border-slate-200 bg-muted/20 p-4">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
+                    {/* STATUS */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Status</label>
+
+                      <div className="flex items-center gap-2">
+                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                          <SelectTrigger className="flex-1">
+                            <SelectValue />
+                          </SelectTrigger>
+
+                          <SelectContent>
+                            <SelectItem value="ALL">All Status</SelectItem>
+                            <SelectItem value="ACTIVE">Active</SelectItem>
+                            <SelectItem value="INACTIVE">Inactive</SelectItem>
+                          </SelectContent>
+                        </Select>
+
+                        {statusFilter !== "ALL" && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            title="Clear status filter"
+                            aria-label="Clear status filter"
+                            onClick={() => setStatusFilter("ALL")}
+                            className="h-9 w-9 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* CATEGORY */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Category</label>
+
+                      <div className="flex items-center gap-2">
+                        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                          <SelectTrigger className="flex-1">
+                            <SelectValue />
+                          </SelectTrigger>
+
+                          <SelectContent>
+                            <SelectItem value="ALL">All Categories</SelectItem>
+
+                            {categories.map((category) => (
+                              <SelectItem key={category} value={category}>
+                                {category}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+
+                        {categoryFilter !== "ALL" && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            title="Clear category filter"
+                            aria-label="Clear category filter"
+                            onClick={() => setCategoryFilter("ALL")}
+                            className="h-9 w-9 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* TYPE */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Type</label>
+
+                      <div className="flex items-center gap-2">
+                        <Select value={typeFilter} onValueChange={setTypeFilter}>
+                          <SelectTrigger className="flex-1">
+                            <SelectValue />
+                          </SelectTrigger>
+
+                          <SelectContent>
+                            <SelectItem value="ALL">All Types</SelectItem>
+
+                            {types.map((type) => (
+                              <SelectItem key={type} value={type}>
+                                {type}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+
+                        {typeFilter !== "ALL" && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            title="Clear type filter"
+                            aria-label="Clear type filter"
+                            onClick={() => setTypeFilter("ALL")}
+                            className="h-9 w-9 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* SAMPLE TYPE */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Sample Type</label>
+
+                      <div className="flex items-center gap-2">
+                        <Select value={sampleTypeFilter} onValueChange={setSampleTypeFilter}>
+                          <SelectTrigger className="flex-1">
+                            <SelectValue />
+                          </SelectTrigger>
+
+                          <SelectContent>
+                            <SelectItem value="ALL">All Sample Types</SelectItem>
+
+                            {sampleTypes.map((sampleType) => (
+                              <SelectItem key={sampleType} value={sampleType}>
+                                {sampleType}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+
+                        {sampleTypeFilter !== "ALL" && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            title="Clear sample type filter"
+                            aria-label="Clear sample type filter"
+                            onClick={() => setSampleTypeFilter("ALL")}
+                            className="h-9 w-9 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* FROM DATE */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">From Date</label>
+
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="date"
+                          value={fromDate}
+                          onChange={(event) => setFromDate(event.target.value)}
+                          className="flex-1"
+                        />
+
+                        {fromDate && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            title="Clear from date"
+                            aria-label="Clear from date"
+                            onClick={() => setFromDate("")}
+                            className="h-9 w-9 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* TO DATE */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">To Date</label>
+
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="date"
+                          value={toDate}
+                          onChange={(event) => setToDate(event.target.value)}
+                          className="flex-1"
+                        />
+
+                        {toDate && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            title="Clear to date"
+                            aria-label="Clear to date"
+                            onClick={() => setToDate("")}
+                            className="h-9 w-9 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* TABLE */}
+            <div className="px-5">
+              {/* SELECT ALL */}
+              {!loading && paginatedInvestigations.length > 0 && (
+                <div className="print-hide flex items-center gap-2 border-t border-slate-200 px-5 py-3">
+                  <Checkbox
+                    checked={allCurrentPageSelected}
+                    onCheckedChange={(checked) => handleSelectAll(checked === true)}
+                    aria-label="Select all investigations on this page"
+                  />
+
+                  <span className="text-sm text-muted-foreground">Select all on this page</span>
+                </div>
+              )}
+              <DataTable
+                columns={columns}
+                data={paginatedInvestigations}
+                getRowKey={(row) => row._id}
+                loading={loading}
+                emptyMessage={
+                  hasActiveFilters
+                    ? "No investigations match the selected filters."
+                    : "No investigation records found."
+                }
+              />
+            </div>
+
+            {/* PAGINATION */}
+            {!loading && filteredInvestigations.length > 0 && (
+              <div className="print-hide flex flex-col gap-3 border-t border-slate-200 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <DataTablePageSize
+                  value={pageSize}
+                  onChange={(value) => {
+                    setPageSize(value);
+                    setCurrentPage(1);
+                  }}
+                />
+
+                <DataTablePagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                />
+              </div>
+            )}
+          </section>
+
+          {/* ERROR STATE */}
+          {loadError && !loading && (
+            <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-center">
+              <p className="font-medium text-destructive">Unable to load investigations</p>
+
+              <p className="mt-1 text-sm text-muted-foreground">{loadError}</p>
+
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setFilterOpen((current) => !current)}
-                className="shrink-0"
+                className="mt-4"
+                onClick={() => void loadInvestigations()}
               >
-                <Filter className="mr-2 h-4 w-4" />
-                Filters
-                {hasActiveFilters && (
-                  <span className="ml-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground">
-                    {
-                      [
-                        statusFilter !== "ALL",
-                        categoryFilter !== "ALL",
-                        typeFilter !== "ALL",
-                        sampleTypeFilter !== "ALL",
-                        Boolean(fromDate),
-                        Boolean(toDate),
-                      ].filter(Boolean).length
-                    }
-                  </span>
-                )}
+                Retry
               </Button>
-              {hasActiveFilters && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  title="Clear all filters"
-                  aria-label="Clear all filters"
-                  onClick={closeAndClearFilters}
-                  className="h-9 w-9 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-          </div>
-          {/* FILTER PANEL */}
-          {filterOpen && (
-            <div className="mt-4 rounded-lg border border-slate-200 bg-muted/20 p-4">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
-                {/* STATUS */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Status</label>
-
-                  <div className="flex items-center gap-2">
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger className="flex-1">
-                        <SelectValue />
-                      </SelectTrigger>
-
-                      <SelectContent>
-                        <SelectItem value="ALL">All Status</SelectItem>
-                        <SelectItem value="ACTIVE">Active</SelectItem>
-                        <SelectItem value="INACTIVE">Inactive</SelectItem>
-                      </SelectContent>
-                    </Select>
-
-                    {statusFilter !== "ALL" && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        title="Clear status filter"
-                        aria-label="Clear status filter"
-                        onClick={() => setStatusFilter("ALL")}
-                        className="h-9 w-9 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                {/* CATEGORY */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Category</label>
-
-                  <div className="flex items-center gap-2">
-                    <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                      <SelectTrigger className="flex-1">
-                        <SelectValue />
-                      </SelectTrigger>
-
-                      <SelectContent>
-                        <SelectItem value="ALL">All Categories</SelectItem>
-
-                        {categories.map((category) => (
-                          <SelectItem key={category} value={category}>
-                            {category}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-
-                    {categoryFilter !== "ALL" && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        title="Clear category filter"
-                        aria-label="Clear category filter"
-                        onClick={() => setCategoryFilter("ALL")}
-                        className="h-9 w-9 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                {/* TYPE */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Type</label>
-
-                  <div className="flex items-center gap-2">
-                    <Select value={typeFilter} onValueChange={setTypeFilter}>
-                      <SelectTrigger className="flex-1">
-                        <SelectValue />
-                      </SelectTrigger>
-
-                      <SelectContent>
-                        <SelectItem value="ALL">All Types</SelectItem>
-
-                        {types.map((type) => (
-                          <SelectItem key={type} value={type}>
-                            {type}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-
-                    {typeFilter !== "ALL" && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        title="Clear type filter"
-                        aria-label="Clear type filter"
-                        onClick={() => setTypeFilter("ALL")}
-                        className="h-9 w-9 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                {/* SAMPLE TYPE */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Sample Type</label>
-
-                  <div className="flex items-center gap-2">
-                    <Select value={sampleTypeFilter} onValueChange={setSampleTypeFilter}>
-                      <SelectTrigger className="flex-1">
-                        <SelectValue />
-                      </SelectTrigger>
-
-                      <SelectContent>
-                        <SelectItem value="ALL">All Sample Types</SelectItem>
-
-                        {sampleTypes.map((sampleType) => (
-                          <SelectItem key={sampleType} value={sampleType}>
-                            {sampleType}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-
-                    {sampleTypeFilter !== "ALL" && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        title="Clear sample type filter"
-                        aria-label="Clear sample type filter"
-                        onClick={() => setSampleTypeFilter("ALL")}
-                        className="h-9 w-9 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                {/* FROM DATE */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">From Date</label>
-
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="date"
-                      value={fromDate}
-                      onChange={(event) => setFromDate(event.target.value)}
-                      className="flex-1"
-                    />
-
-                    {fromDate && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        title="Clear from date"
-                        aria-label="Clear from date"
-                        onClick={() => setFromDate("")}
-                        className="h-9 w-9 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                {/* TO DATE */}
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">To Date</label>
-
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="date"
-                      value={toDate}
-                      onChange={(event) => setToDate(event.target.value)}
-                      className="flex-1"
-                    />
-
-                    {toDate && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        title="Clear to date"
-                        aria-label="Clear to date"
-                        onClick={() => setToDate("")}
-                        className="h-9 w-9 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </div>
             </div>
           )}
-        </div>
 
-        {/* TABLE */}
-        <div className="px-5">
-          {/* SELECT ALL */}
-          {!loading && paginatedInvestigations.length > 0 && (
-            <div className="flex items-center gap-2 border-t border-slate-200 px-5 py-3">
-              <Checkbox
-                checked={allCurrentPageSelected}
-                onCheckedChange={(checked) => handleSelectAll(checked === true)}
-                aria-label="Select all investigations on this page"
-              />
-
-              <span className="text-sm text-muted-foreground">Select all on this page</span>
-            </div>
-          )}
-          <DataTable
-            columns={columns}
-            data={paginatedInvestigations}
-            getRowKey={(row) => row._id}
-            loading={loading}
-            emptyMessage={
-              hasActiveFilters
-                ? "No investigations match the selected filters."
-                : "No investigation records found."
+          {/* ADD / EDIT FORM */}
+          <FormDialog
+            open={formOpen}
+            onOpenChange={(open) => {
+              if (!open) {
+                handleFormCancel();
+              }
+            }}
+            title={editingInvestigation ? "Edit Investigation" : "Add New Investigation"}
+            description={
+              editingInvestigation
+                ? "Update the investigation master record."
+                : "Enter the investigation details to create a new master record."
             }
+          >
+            <InvestigationForm
+              investigation={editingInvestigation}
+              onSuccess={() => void handleFormSuccess()}
+              onCancel={handleFormCancel}
+            />
+          </FormDialog>
+
+          {/* VIEW DETAILS */}
+          <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
+            <DialogContent className="max-w-3xl">
+              <DialogHeader>
+                <DialogTitle>Investigation Details</DialogTitle>
+
+                <DialogDescription>
+                  View complete information for this investigation.
+                </DialogDescription>
+              </DialogHeader>
+
+              {detailsLoading ? (
+                <div className="flex min-h-[220px] items-center justify-center">
+                  <div className="text-sm text-muted-foreground">
+                    Loading investigation details...
+                  </div>
+                </div>
+              ) : selectedInvestigation ? (
+                <div className="space-y-6">
+                  <div className="flex items-start justify-between gap-4 rounded-xl border border-slate-200 bg-muted/20 p-4">
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Investigation
+                      </p>
+
+                      <h3 className="mt-1 text-xl font-semibold">
+                        {selectedInvestigation.investigationName}
+                      </h3>
+
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {selectedInvestigation.investigationCode}
+                      </p>
+                    </div>
+
+                    <StatusBadge status={selectedInvestigation.status} />
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                    <DetailItem
+                      label="Investigation Name"
+                      value={selectedInvestigation.investigationName}
+                    />
+
+                    <DetailItem
+                      label="Investigation Code"
+                      value={selectedInvestigation.investigationCode}
+                    />
+
+                    <DetailItem label="LOINC Code" value={selectedInvestigation.loincCode} />
+
+                    <DetailItem label="Category" value={selectedInvestigation.category} />
+
+                    <DetailItem label="Type" value={selectedInvestigation.type} />
+
+                    <DetailItem label="Sample Type" value={selectedInvestigation.sampleType} />
+
+                    <DetailItem
+                      label="Turnaround Time"
+                      value={
+                        selectedInvestigation.turnaroundTime !== null &&
+                        selectedInvestigation.turnaroundTime !== undefined
+                          ? `${selectedInvestigation.turnaroundTime} minutes`
+                          : null
+                      }
+                    />
+
+                    <DetailItem
+                      label="Created Date"
+                      value={formatDate(selectedInvestigation.createdAt)}
+                    />
+
+                    <DetailItem
+                      label="Updated Date"
+                      value={formatDate(selectedInvestigation.updatedAt)}
+                    />
+                  </div>
+
+                  <div className="rounded-xl border border-slate-200 p-4">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Description
+                    </p>
+
+                    <p className="mt-2 text-sm leading-6">
+                      {selectedInvestigation.description || "No description provided."}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between rounded-xl border border-slate-200 p-4">
+                    <div>
+                      <p className="font-medium">Investigation Status</p>
+
+                      <p className="text-sm text-muted-foreground">
+                        Activate or deactivate this investigation.
+                      </p>
+                    </div>
+
+                    <Switch
+                      checked={selectedInvestigation.status === "ACTIVE"}
+                      onCheckedChange={() => openStatusDialog(selectedInvestigation)}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="py-10 text-center text-sm text-muted-foreground">
+                  Investigation details could not be loaded.
+                </div>
+              )}
+
+              <DialogFooter>
+                {selectedInvestigation && (
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setDetailsDialogOpen(false);
+                      handleEdit(selectedInvestigation);
+                    }}
+                  >
+                    <Edit className="mr-2 h-4 w-4" />
+                    Edit Investigation
+                  </Button>
+                )}
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* STATUS CONFIRMATION */}
+          <AlertDialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  {statusInvestigation?.status === "ACTIVE"
+                    ? "Deactivate Investigation?"
+                    : "Activate Investigation?"}
+                </AlertDialogTitle>
+
+                <AlertDialogDescription>
+                  {statusInvestigation?.status === "ACTIVE"
+                    ? `Are you sure you want to deactivate "${statusInvestigation?.investigationName}"?`
+                    : `Are you sure you want to activate "${statusInvestigation?.investigationName}"?`}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={statusChanging}>Cancel</AlertDialogCancel>
+
+                <AlertDialogAction
+                  onClick={() => void handleStatusChange()}
+                  disabled={statusChanging}
+                >
+                  {statusInvestigation?.status === "ACTIVE" ? "Deactivate" : "Activate"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          {/*delete confirm*/}
+          <ConfirmDialog
+            open={deleteDialogOpen}
+            onOpenChange={setDeleteDialogOpen}
+            title={
+              deleteMode === "BULK"
+                ? `Delete ${selectedInvestigationIds.length} Investigations?`
+                : "Delete Investigation?"
+            }
+            description={
+              deleteMode === "BULK"
+                ? `Are you sure you want to delete ${selectedInvestigationIds.length} selected investigation ${
+                    selectedInvestigationIds.length === 1 ? "record" : "records"
+                  }? This will perform a soft delete and remove them from the active investigation list.`
+                : `Are you sure you want to delete ${
+                    deleteTarget?.investigationName ?? "this investigation"
+                  }? This will perform a soft delete and remove the record from the active investigation list.`
+            }
+            confirmText={deleting ? "Deleting..." : "Delete"}
+            cancelText="Cancel"
+            onConfirm={() => (deleteMode === "BULK" ? handleBulkDelete() : handleDelete())}
+            destructive
+            loading={deleting}
           />
         </div>
-
-        {/* PAGINATION */}
-        {!loading && filteredInvestigations.length > 0 && (
-          <div className="flex flex-col gap-3 border-t border-slate-200 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <DataTablePageSize
-              value={pageSize}
-              onChange={(value) => {
-                setPageSize(value);
-                setCurrentPage(1);
-              }}
-            />
-
-            <DataTablePagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
-            />
-          </div>
-        )}
-      </section>
-
-      {/* ERROR STATE */}
-      {loadError && !loading && (
-        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-center">
-          <p className="font-medium text-destructive">Unable to load investigations</p>
-
-          <p className="mt-1 text-sm text-muted-foreground">{loadError}</p>
-
-          <Button
-            type="button"
-            variant="outline"
-            className="mt-4"
-            onClick={() => void loadInvestigations()}
-          >
-            Retry
-          </Button>
-        </div>
       )}
-
-      {/* ADD / EDIT FORM */}
-      <FormDialog
-        open={formOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            handleFormCancel();
-          }
-        }}
-        title={editingInvestigation ? "Edit Investigation" : "Add New Investigation"}
-        description={
-          editingInvestigation
-            ? "Update the investigation master record."
-            : "Enter the investigation details to create a new master record."
-        }
-      >
-        <InvestigationForm
-          investigation={editingInvestigation}
-          onSuccess={() => void handleFormSuccess()}
-          onCancel={handleFormCancel}
-        />
-      </FormDialog>
-
-      {/* VIEW DETAILS */}
-      <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Investigation Details</DialogTitle>
-
-            <DialogDescription>View complete information for this investigation.</DialogDescription>
-          </DialogHeader>
-
-          {detailsLoading ? (
-            <div className="flex min-h-[220px] items-center justify-center">
-              <div className="text-sm text-muted-foreground">Loading investigation details...</div>
-            </div>
-          ) : selectedInvestigation ? (
-            <div className="space-y-6">
-              <div className="flex items-start justify-between gap-4 rounded-xl border border-slate-200 bg-muted/20 p-4">
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Investigation
-                  </p>
-
-                  <h3 className="mt-1 text-xl font-semibold">
-                    {selectedInvestigation.investigationName}
-                  </h3>
-
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {selectedInvestigation.investigationCode}
-                  </p>
-                </div>
-
-                <StatusBadge status={selectedInvestigation.status} />
-              </div>
-
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                <DetailItem
-                  label="Investigation Name"
-                  value={selectedInvestigation.investigationName}
-                />
-
-                <DetailItem
-                  label="Investigation Code"
-                  value={selectedInvestigation.investigationCode}
-                />
-
-                <DetailItem label="LOINC Code" value={selectedInvestigation.loincCode} />
-
-                <DetailItem label="Category" value={selectedInvestigation.category} />
-
-                <DetailItem label="Type" value={selectedInvestigation.type} />
-
-                <DetailItem label="Sample Type" value={selectedInvestigation.sampleType} />
-
-                <DetailItem
-                  label="Turnaround Time"
-                  value={
-                    selectedInvestigation.turnaroundTime !== null &&
-                    selectedInvestigation.turnaroundTime !== undefined
-                      ? `${selectedInvestigation.turnaroundTime} minutes`
-                      : null
-                  }
-                />
-
-                <DetailItem
-                  label="Created Date"
-                  value={formatDate(selectedInvestigation.createdAt)}
-                />
-
-                <DetailItem
-                  label="Updated Date"
-                  value={formatDate(selectedInvestigation.updatedAt)}
-                />
-              </div>
-
-              <div className="rounded-xl border border-slate-200 p-4">
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Description
-                </p>
-
-                <p className="mt-2 text-sm leading-6">
-                  {selectedInvestigation.description || "No description provided."}
-                </p>
-              </div>
-
-              <div className="flex items-center justify-between rounded-xl border border-slate-200 p-4">
-                <div>
-                  <p className="font-medium">Investigation Status</p>
-
-                  <p className="text-sm text-muted-foreground">
-                    Activate or deactivate this investigation.
-                  </p>
-                </div>
-
-                <Switch
-                  checked={selectedInvestigation.status === "ACTIVE"}
-                  onCheckedChange={() => openStatusDialog(selectedInvestigation)}
-                />
-              </div>
-            </div>
-          ) : (
-            <div className="py-10 text-center text-sm text-muted-foreground">
-              Investigation details could not be loaded.
-            </div>
-          )}
-
-          <DialogFooter>
-            {selectedInvestigation && (
-              <Button
-                type="button"
-                onClick={() => {
-                  setDetailsDialogOpen(false);
-                  handleEdit(selectedInvestigation);
-                }}
-              >
-                <Edit className="mr-2 h-4 w-4" />
-                Edit Investigation
-              </Button>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* STATUS CONFIRMATION */}
-      <AlertDialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {statusInvestigation?.status === "ACTIVE"
-                ? "Deactivate Investigation?"
-                : "Activate Investigation?"}
-            </AlertDialogTitle>
-
-            <AlertDialogDescription>
-              {statusInvestigation?.status === "ACTIVE"
-                ? `Are you sure you want to deactivate "${statusInvestigation?.investigationName}"?`
-                : `Are you sure you want to activate "${statusInvestigation?.investigationName}"?`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={statusChanging}>Cancel</AlertDialogCancel>
-
-            <AlertDialogAction onClick={() => void handleStatusChange()} disabled={statusChanging}>
-              {statusInvestigation?.status === "ACTIVE" ? "Deactivate" : "Activate"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-      {/*delete confirm*/}
-      <ConfirmDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
-        title={
-          deleteMode === "BULK"
-            ? `Delete ${selectedInvestigationIds.length} Investigations?`
-            : "Delete Investigation?"
-        }
-        description={
-          deleteMode === "BULK"
-            ? `Are you sure you want to delete ${selectedInvestigationIds.length} selected investigation ${
-                selectedInvestigationIds.length === 1 ? "record" : "records"
-              }? This will perform a soft delete and remove them from the active investigation list.`
-            : `Are you sure you want to delete ${
-                deleteTarget?.investigationName ?? "this investigation"
-              }? This will perform a soft delete and remove the record from the active investigation list.`
-        }
-        confirmText={deleting ? "Deleting..." : "Delete"}
-        cancelText="Cancel"
-        onConfirm={() => (deleteMode === "BULK" ? handleBulkDelete() : handleDelete())}
-        destructive
-        loading={deleting}
-      />
     </PageContainer>
   );
 }
