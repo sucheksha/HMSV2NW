@@ -10,11 +10,12 @@ import {
   Download,
   Printer,
   Eye,
-  MapPinned,FileDown,
+  MapPinned,
+  FileDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
-
+import { downloadTablePDF } from "@/components/common/pdfExport";
 import { DataTableSkeleton } from "@/components/common/DataTable/DataTableSkeleton";
 import { PageContainer } from "@/components/common/PageContainer";
 import { Button } from "@/components/ui/button";
@@ -165,7 +166,7 @@ export default function LocationPage() {
   const [loading, setLoading] = useState(false);
   const [referenceLoading, setReferenceLoading] = useState(false);
   const [loadError, setLoadError] = useState("");
-
+  const [pdfExporting, setPdfExporting] = useState(false);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -662,7 +663,231 @@ export default function LocationPage() {
       toast.error(getErrorMessage(error, "Unable to export the Excel report."));
     }
   }
+  // Export ALL records matching the active tab's filters to PDF.
+  async function exportPDF() {
+    if (pdfExporting) return;
 
+    setPdfExporting(true);
+
+    try {
+      const filters = {
+        limit: 100,
+        sortBy: "name" as const,
+        sortOrder: "asc" as const,
+        ...(debouncedSearch ? { search: debouncedSearch } : {}),
+        ...(statusFilter !== "all" ? { isActive: statusFilter === "active" } : {}),
+      };
+
+      if (activeTab === "states") {
+        // Fetch every matching state page.
+        const first = await getStates({
+          ...filters,
+          page: 1,
+        });
+
+        const rows: State[] = [...first.states];
+
+        for (let p = 2; p <= first.totalPages; p++) {
+          const result = await getStates({
+            ...filters,
+            page: p,
+          });
+
+          rows.push(...result.states);
+        }
+
+        if (rows.length === 0) {
+          toast.error("No state records available to download.");
+          return;
+        }
+
+        const pdfRows = rows.map((item, index) => ({
+          ...item,
+          serialNumber: index + 1,
+        }));
+
+        downloadTablePDF({
+          title: "State Management Report",
+          fileName: "state-report",
+          orientation: "portrait",
+          columns: [
+            {
+              header: "Sr. No.",
+              value: (item) => item.serialNumber,
+            },
+            {
+              header: "State Name",
+              value: (item) => item.name,
+            },
+            {
+              header: "State Code",
+              value: (item) => item.code,
+            },
+            {
+              header: "Status",
+              value: (item) => (item.isActive ? "Active" : "Inactive"),
+            },
+            {
+              header: "Created Date",
+              value: (item) => formatDate(item.createdAt),
+            },
+          ],
+          rows: pdfRows,
+        });
+
+        toast.success(`${rows.length} state records exported successfully.`);
+      } else if (activeTab === "districts") {
+        // Fetch every matching district page.
+        const districtParams = {
+          ...filters,
+          ...(stateFilter ? { state: stateFilter } : {}),
+        };
+
+        const first = await getDistricts({
+          ...districtParams,
+          page: 1,
+        });
+
+        const rows: District[] = [...first.districts];
+
+        for (let p = 2; p <= first.totalPages; p++) {
+          const result = await getDistricts({
+            ...districtParams,
+            page: p,
+          });
+
+          rows.push(...result.districts);
+        }
+
+        if (rows.length === 0) {
+          toast.error("No district records available to download.");
+          return;
+        }
+
+        const pdfRows = rows.map((item, index) => ({
+          serialNumber: index + 1,
+          name: item.name,
+          stateName: getRelationName(item.state, stateOptions),
+          status: item.isActive ? "Active" : "Inactive",
+          createdAt: formatDate(item.createdAt),
+        }));
+
+        downloadTablePDF({
+          title: "District Management Report",
+          fileName: "district-report",
+          orientation: "landscape",
+          columns: [
+            {
+              header: "Sr. No.",
+              value: (item) => item.serialNumber,
+            },
+            {
+              header: "District Name",
+              value: (item) => item.name,
+            },
+            {
+              header: "State",
+              value: (item) => item.stateName,
+            },
+            {
+              header: "Status",
+              value: (item) => item.status,
+            },
+            {
+              header: "Created Date",
+              value: (item) => item.createdAt,
+            },
+          ],
+          rows: pdfRows,
+        });
+
+        toast.success(`${rows.length} district records exported successfully.`);
+      } else {
+        // Fetch every matching taluka page.
+        const talukaParams = {
+          ...filters,
+          ...(districtFilter ? { district: districtFilter } : {}),
+        };
+
+        const first = await getTalukas({
+          ...talukaParams,
+          page: 1,
+        });
+
+        const rows: Taluka[] = [...first.talukas];
+
+        for (let p = 2; p <= first.totalPages; p++) {
+          const result = await getTalukas({
+            ...talukaParams,
+            page: p,
+          });
+
+          rows.push(...result.talukas);
+        }
+
+        if (rows.length === 0) {
+          toast.error("No taluka records available to download.");
+          return;
+        }
+
+        const pdfRows = rows.map((item, index) => {
+          const districtName = getRelationName(item.district, districtOptions);
+
+          const district = districtOptions.find(
+            (record) => record._id === getRelationId(item.district),
+          );
+
+          return {
+            serialNumber: index + 1,
+            name: item.name,
+            districtName,
+            stateName: district ? getRelationName(district.state, stateOptions) : "—",
+            status: item.isActive ? "Active" : "Inactive",
+            createdAt: formatDate(item.createdAt),
+          };
+        });
+
+        downloadTablePDF({
+          title: "Taluka Management Report",
+          fileName: "taluka-report",
+          orientation: "landscape",
+          columns: [
+            {
+              header: "Sr. No.",
+              value: (item) => item.serialNumber,
+            },
+            {
+              header: "Taluka Name",
+              value: (item) => item.name,
+            },
+            {
+              header: "District",
+              value: (item) => item.districtName,
+            },
+            {
+              header: "State",
+              value: (item) => item.stateName,
+            },
+            {
+              header: "Status",
+              value: (item) => item.status,
+            },
+            {
+              header: "Created Date",
+              value: (item) => item.createdAt,
+            },
+          ],
+          rows: pdfRows,
+        });
+
+        toast.success(`${rows.length} taluka records exported successfully.`);
+      }
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Unable to generate the PDF report."));
+    } finally {
+      setPdfExporting(false);
+    }
+  }
   function printReport() {
     window.print();
   }
@@ -1027,7 +1252,16 @@ export default function LocationPage() {
                   <Download className="mr-2 h-4 w-4" />
                   Export Excel
                 </Button>
-
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void exportPDF()}
+                  disabled={loading || pdfExporting}
+                >
+                  <FileDown className="mr-2 h-4 w-4" />
+                  {pdfExporting ? "Generating PDF..." : "Download PDF"}
+                </Button>
                 <Button type="button" variant="outline" size="sm" onClick={printReport}>
                   <Printer className="mr-2 h-4 w-4" />
                   Print Report
@@ -1061,7 +1295,7 @@ export default function LocationPage() {
                   className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                   aria-label="Filter by status"
                 >
-                  <option value="all">All statuses</option>
+                  <option value="all">All status</option>
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
                 </select>

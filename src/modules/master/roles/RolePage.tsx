@@ -5,6 +5,7 @@ import {
   ChevronDown,
   Download,
   Edit,
+  Eye,
   FileText,
   Plus,
   Printer,
@@ -51,7 +52,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-import { createRole, deleteRole, getRoles, updateRole } from "./role.service";
+import { createRole, deleteRole, getRoles, getRoleById, updateRole } from "./role.service";
 import type {
   Role,
   RoleListQuery,
@@ -141,7 +142,9 @@ export default function RolePage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
   const [saving, setSaving] = useState(false);
-
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  const [viewRole, setViewRole] = useState<Role | null>(null);
+  const [viewLoading, setViewLoading] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Role | null>(null);
   const [deleteMode, setDeleteMode] = useState<"SINGLE" | "BULK">("SINGLE");
@@ -150,7 +153,7 @@ export default function RolePage() {
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [statusRole, setStatusRole] = useState<Role | null>(null);
   const [statusChanging, setStatusChanging] = useState(false);
-
+  const [statusConfirmed, setStatusConfirmed] = useState(false);
   const requestIdRef = useRef(0);
 
   useEffect(() => {
@@ -268,7 +271,21 @@ export default function RolePage() {
     setEditingRole(role);
     setFormOpen(true);
   };
+  const handleView = async (roleId: string) => {
+    setViewLoading(true);
+    setViewDialogOpen(true);
+    setViewRole(null);
 
+    try {
+      const role = await getRoleById(roleId);
+      setViewRole(role);
+    } catch (error) {
+      toast.error(getApiErrorMessage(error));
+      setViewDialogOpen(false);
+    } finally {
+      setViewLoading(false);
+    }
+  };
   const handleFormSuccess = async (data: CreateRoleRequest | UpdateRoleRequest) => {
     setSaving(true);
 
@@ -294,6 +311,7 @@ export default function RolePage() {
 
   const openStatusDialog = (role: Role) => {
     setStatusRole(role);
+    setStatusConfirmed(false);
     setStatusDialogOpen(true);
   };
 
@@ -514,15 +532,24 @@ export default function RolePage() {
     },
     {
       key: "status",
-      header: renderSortHeader("Status", "status"),
+      header: "Status",
       render: (role) => (
         <button
           type="button"
-          className="cursor-pointer"
-          title="Change role status"
           onClick={() => openStatusDialog(role)}
+          className="focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-full"
+          aria-label={`Change status of ${role.roleName}. Current status: ${role.status}`}
         >
-          <StatusBadge status={role.status} />
+          <Badge
+            variant="outline"
+            className={
+              role.status === "ACTIVE"
+                ? "border-emerald-400 bg-emerald-50 text-emerald-700"
+                : "border-red-400 bg-red-50 text-red-600"
+            }
+          >
+            {role.status === "ACTIVE" ? "Active" : "Inactive"}
+          </Badge>
         </button>
       ),
     },
@@ -557,15 +584,15 @@ export default function RolePage() {
               </Button>
             </DropdownMenuTrigger>
 
-            <DropdownMenuContent align="end" className="w-40">
+            <DropdownMenuContent align="end" className="w-36">
+              <DropdownMenuItem onClick={() => void handleView(role._id)}>
+                <Eye className="mr-2 h-4 w-4" />
+                View
+              </DropdownMenuItem>
+
               <DropdownMenuItem onClick={() => handleEdit(role)}>
                 <Edit className="mr-2 h-4 w-4" />
                 Edit
-              </DropdownMenuItem>
-
-              <DropdownMenuItem onClick={() => openStatusDialog(role)}>
-                <Activity className="mr-2 h-4 w-4" />
-                {role.status === "ACTIVE" ? "Deactivate" : "Activate"}
               </DropdownMenuItem>
 
               <DropdownMenuItem
@@ -824,11 +851,96 @@ export default function RolePage() {
           }}
         />
       </FormDialog>
+      <Dialog
+        open={viewDialogOpen}
+        onOpenChange={(open) => {
+          if (!viewLoading) {
+            setViewDialogOpen(open);
 
+            if (!open) {
+              setViewRole(null);
+            }
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Role Details</DialogTitle>
+            <DialogDescription>View the details of this role.</DialogDescription>
+          </DialogHeader>
+
+          {viewLoading ? (
+            <div className="py-8 text-center text-sm text-muted-foreground">
+              Loading role details...
+            </div>
+          ) : viewRole ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <p className="text-sm text-muted-foreground">Role ID</p>
+                  <p className="font-medium">{viewRole.roleId}</p>
+                </div>
+
+                <div>
+                  <p className="text-sm text-muted-foreground">Role Name</p>
+                  <p className="font-medium">{viewRole.roleName}</p>
+                </div>
+
+                <div>
+                  <p className="text-sm text-muted-foreground">Department Category</p>
+                  <p className="font-medium">{viewRole.departmentCategory || "-"}</p>
+                </div>
+
+                <div>
+                  <p className="text-sm text-muted-foreground">Status</p>
+                  <div className="mt-1">
+                    <StatusBadge status={viewRole.status} />
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Created Date</p>
+                  <p className="font-medium">{formatDate(viewRole.createdAt)}</p>
+                </div>
+
+                <div>
+                  <p className="text-sm text-muted-foreground">Last Updated</p>
+                  <p className="font-medium">{formatDate(viewRole.updatedAt)}</p>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-sm text-muted-foreground">Description</p>
+                <p className="mt-1 text-sm">{viewRole.description || "-"}</p>
+              </div>
+            </div>
+          ) : null}
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setViewDialogOpen(false);
+                setViewRole(null);
+              }}
+              disabled={viewLoading}
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog
         open={statusDialogOpen}
         onOpenChange={(open) => {
-          if (!statusChanging) setStatusDialogOpen(open);
+          if (!statusChanging) {
+            setStatusDialogOpen(open);
+
+            if (!open) {
+              setStatusConfirmed(false);
+              setStatusRole(null);
+            }
+          }
         }}
       >
         <DialogContent className="max-w-md">
@@ -838,6 +950,7 @@ export default function RolePage() {
                 <DialogTitle>
                   {statusRole.status === "ACTIVE" ? "Deactivate Role?" : "Activate Role?"}
                 </DialogTitle>
+
                 <DialogDescription>
                   Are you sure you want to{" "}
                   {statusRole.status === "ACTIVE" ? "deactivate" : "activate"}{" "}
@@ -846,27 +959,46 @@ export default function RolePage() {
               </DialogHeader>
 
               <div className="rounded-xl border border-slate-200 bg-muted/20 p-4">
-                <p className="text-sm">
+                <p className="mb-3 text-sm">
                   {statusRole.status === "ACTIVE"
                     ? "This role will be marked inactive."
                     : "This role will be marked active again."}
                 </p>
+
+                <div className="flex items-start gap-2">
+                  <Checkbox
+                    id="confirm-role-status"
+                    checked={statusConfirmed}
+                    onCheckedChange={(checked) => setStatusConfirmed(checked === true)}
+                    disabled={statusChanging}
+                  />
+
+                  <label htmlFor="confirm-role-status" className="cursor-pointer text-sm leading-5">
+                    Yes, I confirm that I want to{" "}
+                    {statusRole.status === "ACTIVE" ? "deactivate" : "activate"} this role.
+                  </label>
+                </div>
               </div>
 
               <DialogFooter>
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setStatusDialogOpen(false)}
+                  onClick={() => {
+                    setStatusDialogOpen(false);
+                    setStatusConfirmed(false);
+                    setStatusRole(null);
+                  }}
                   disabled={statusChanging}
                 >
                   Cancel
                 </Button>
+
                 <Button
                   type="button"
                   variant={statusRole.status === "ACTIVE" ? "destructive" : "default"}
                   onClick={() => void handleStatusChange()}
-                  disabled={statusChanging}
+                  disabled={!statusConfirmed || statusChanging}
                 >
                   {statusChanging
                     ? "Updating..."
@@ -879,7 +1011,6 @@ export default function RolePage() {
           )}
         </DialogContent>
       </Dialog>
-
       <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={(open) => {

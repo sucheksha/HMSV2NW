@@ -599,17 +599,9 @@ export default function DepartmentPage() {
       setDeleting(false);
     }
   };
-
-  // =========================================================
   // RENDER
-  // =========================================================
-
   return (
     <PageContainer>
-      {/* =====================================================
-          PAGE HEADER
-      ====================================================== */}
-
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex items-start gap-3">
           <div
@@ -639,11 +631,7 @@ export default function DepartmentPage() {
           {totalDepartments} {totalDepartments === 1 ? "department" : "departments"} configured
         </p>
       </div>
-
-      {/* =====================================================
-          SEARCH / FILTER / ACTION BAR
-      ====================================================== */}
-
+      {/*SEARCH / FILTER / ACTION BAR*/}
       <div
         className="
           rounded-2xl
