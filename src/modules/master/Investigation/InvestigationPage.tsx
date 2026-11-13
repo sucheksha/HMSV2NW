@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   ChevronDown,
@@ -10,16 +10,16 @@ import {
   FlaskConical,
   Plus,
   Printer,
-  Search,
   Trash2,
   X,
   FileDown,
 } from "lucide-react";
 import { toast } from "sonner";
+import * as XLSX from "xlsx";
+
 import { SearchInput } from "@/components/common/SearchInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import * as XLSX from "xlsx";
 import {
   Select,
   SelectContent,
@@ -35,7 +35,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-
 import {
   AlertDialog,
   AlertDialogAction,
@@ -60,6 +59,14 @@ import {
 } from "@/components/common/DataTable";
 import { FormDialog } from "@/components/common/FormDialog";
 import { KpiCard } from "@/components/common/KpiCard/KpiCard";
+import { PageContainer } from "@/components/common/PageContainer";
+import { RefreshButton } from "@/components/common/RefreshButton";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 import {
   deleteInvestigation,
@@ -69,15 +76,13 @@ import {
 } from "./investigation.service";
 
 import type { Investigation, InvestigationStatus } from "./investigation.types";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+
 import { InvestigationForm } from "./InvestigationForm";
-import { PageContainer } from "@/components/common/PageContainer";
-import { RefreshButton } from "@/components/common/RefreshButton";
+
+// --------------------------------------------------
+// HELPERS
+// --------------------------------------------------
+
 const getApiErrorMessage = (error: unknown): string => {
   if (typeof error === "object" && error !== null && "response" in error) {
     const response = (
@@ -91,12 +96,12 @@ const getApiErrorMessage = (error: unknown): string => {
       }
     ).response;
 
-    if (response?.data?.message) {
-      return response.data.message;
-    }
-
     if (response?.data?.errors?.length) {
       return response.data.errors.join(", ");
+    }
+
+    if (response?.data?.message) {
+      return response.data.message;
     }
   }
 
@@ -108,15 +113,11 @@ const getApiErrorMessage = (error: unknown): string => {
 };
 
 const formatDate = (dateValue?: string | null): string => {
-  if (!dateValue) {
-    return "-";
-  }
+  if (!dateValue) return "-";
 
   const date = new Date(dateValue);
 
-  if (Number.isNaN(date.getTime())) {
-    return "-";
-  }
+  if (Number.isNaN(date.getTime())) return "-";
 
   return date.toLocaleDateString("en-US", {
     month: "short",
@@ -124,6 +125,10 @@ const formatDate = (dateValue?: string | null): string => {
     year: "numeric",
   });
 };
+
+// --------------------------------------------------
+// STATUS BADGE
+// --------------------------------------------------
 
 function StatusBadge({ status }: { status: InvestigationStatus }) {
   const isActive = status === "ACTIVE";
@@ -142,6 +147,10 @@ function StatusBadge({ status }: { status: InvestigationStatus }) {
   );
 }
 
+// --------------------------------------------------
+// DETAILS ITEM
+// --------------------------------------------------
+
 function DetailItem({ label, value }: { label: string; value?: string | number | null }) {
   return (
     <div className="space-y-1">
@@ -154,136 +163,173 @@ function DetailItem({ label, value }: { label: string; value?: string | number |
   );
 }
 
+// --------------------------------------------------
+// MAIN PAGE
+// --------------------------------------------------
+
 export default function InvestigationPage() {
+  // --------------------------------------------------
+  // DATA
+  // --------------------------------------------------
+
   const [investigations, setInvestigations] = useState<Investigation[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+
+  const [totalRecords, setTotalRecords] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+
+  // --------------------------------------------------
+  // SERVER-SIDE PAGINATION
+  // --------------------------------------------------
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  // --------------------------------------------------
+  // FILTERS
+  // --------------------------------------------------
 
   const [filterOpen, setFilterOpen] = useState(false);
 
   const [search, setSearch] = useState("");
 
-  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState<InvestigationStatus | "ALL">("ALL");
+
   const [categoryFilter, setCategoryFilter] = useState("ALL");
   const [typeFilter, setTypeFilter] = useState("ALL");
   const [sampleTypeFilter, setSampleTypeFilter] = useState("ALL");
+
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
+  // --------------------------------------------------
+  // FORM
+  // --------------------------------------------------
+
   const [formOpen, setFormOpen] = useState(false);
+
   const [editingInvestigation, setEditingInvestigation] = useState<Investigation | null>(null);
 
+  // --------------------------------------------------
+  // SELECTION
+  // --------------------------------------------------
+
   const [selectedInvestigationIds, setSelectedInvestigationIds] = useState<string[]>([]);
+
+  // --------------------------------------------------
+  // VIEW DETAILS
+  // --------------------------------------------------
 
   const [selectedInvestigation, setSelectedInvestigation] = useState<Investigation | null>(null);
 
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
 
+  // --------------------------------------------------
+  // STATUS
+  // --------------------------------------------------
+
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [statusChanging, setStatusChanging] = useState(false);
+
   const [statusInvestigation, setStatusInvestigation] = useState<Investigation | null>(null);
 
+  // --------------------------------------------------
+  // DELETE
+  // --------------------------------------------------
+
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+
   const [deleteTarget, setDeleteTarget] = useState<Investigation | null>(null);
+
   const [deleting, setDeleting] = useState(false);
+
   const [deleteMode, setDeleteMode] = useState<"SINGLE" | "BULK">("SINGLE");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
 
   const formRef = useRef<HTMLDivElement | null>(null);
 
-  const loadInvestigations = async () => {
+  // Used to ignore responses from older requests if filters change quickly.
+  const requestIdRef = useRef(0);
+
+  // --------------------------------------------------
+  // SERVER-SIDE DATA FETCHING
+  // --------------------------------------------------
+
+  const loadInvestigations = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
+
+    // Always send a valid 1-based page number.
+    const safePage = Math.max(1, currentPage);
+    const safeLimit = Math.max(1, Math.min(100, pageSize));
+
     setLoading(true);
     setLoadError("");
 
     try {
-      const data = await getInvestigations();
+      const result = await getInvestigations({
+        page: safePage,
+        limit: safeLimit,
 
-      setInvestigations(data);
+        search: search.trim(),
+
+        status: statusFilter === "ALL" ? undefined : statusFilter,
+
+        category: categoryFilter === "ALL" ? undefined : categoryFilter,
+
+        type: typeFilter === "ALL" ? undefined : typeFilter,
+
+        sampleType: sampleTypeFilter === "ALL" ? undefined : sampleTypeFilter,
+
+        fromDate: fromDate || undefined,
+        toDate: toDate || undefined,
+
+        sortBy: "createdAt",
+        sortOrder: "desc",
+      });
+
+      // Ignore an older response if a newer request has started.
+      if (requestId !== requestIdRef.current) return;
+
+      const records = result.investigations ?? [];
+      const pagination = result.pagination;
+
+      setInvestigations(records);
+      setTotalRecords(pagination.totalRecords ?? 0);
+      setTotalPages(pagination.totalPages ?? 0);
+
       setSelectedInvestigationIds([]);
+
+      // If the current page no longer exists, go back to the last
+      // available page. The next effect will fetch that page.
+      if (pagination.totalPages > 0 && safePage > pagination.totalPages) {
+        setCurrentPage(pagination.totalPages);
+      }
+
+      // If no records remain, keep the page number at 1.
+      if (pagination.totalPages === 0 && currentPage !== 1) {
+        setCurrentPage(1);
+      }
     } catch (error) {
+      if (requestId !== requestIdRef.current) return;
+
       const message = getApiErrorMessage(error);
 
       setLoadError(message);
+      setInvestigations([]);
+      setTotalRecords(0);
+      setTotalPages(0);
+
       toast.error(message);
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+      }
     }
-  };
-
-  useEffect(() => {
-    void loadInvestigations();
-  }, []);
-
-  const categories = useMemo(() => {
-    return Array.from(
-      new Set(
-        investigations
-          .map((investigation) => investigation.category)
-          .filter((category): category is string => Boolean(category && category.trim())),
-      ),
-    ).sort((a, b) => a.localeCompare(b));
-  }, [investigations]);
-
-  const types = useMemo(() => {
-    return Array.from(
-      new Set(
-        investigations
-          .map((investigation) => investigation.type)
-          .filter((type): type is string => Boolean(type && type.trim())),
-      ),
-    ).sort((a, b) => a.localeCompare(b));
-  }, [investigations]);
-
-  const sampleTypes = useMemo(() => {
-    return Array.from(
-      new Set(
-        investigations
-          .map((investigation) => investigation.sampleType)
-          .filter((sampleType): sampleType is string => Boolean(sampleType && sampleType.trim())),
-      ),
-    ).sort((a, b) => a.localeCompare(b));
-  }, [investigations]);
-
-  const filteredInvestigations = useMemo(() => {
-    const searchValue = search.trim().toLowerCase();
-
-    return investigations.filter((investigation) => {
-      const matchesSearch =
-        !searchValue ||
-        investigation.investigationName.toLowerCase().includes(searchValue) ||
-        investigation.investigationCode.toLowerCase().includes(searchValue) ||
-        (investigation.loincCode ?? "").toLowerCase().includes(searchValue) ||
-        (investigation.sampleType ?? "").toLowerCase().includes(searchValue);
-
-      const matchesStatus = statusFilter === "ALL" || investigation.status === statusFilter;
-
-      const matchesCategory = categoryFilter === "ALL" || investigation.category === categoryFilter;
-
-      const matchesType = typeFilter === "ALL" || investigation.type === typeFilter;
-
-      const matchesSampleType =
-        sampleTypeFilter === "ALL" || investigation.sampleType === sampleTypeFilter;
-
-      const investigationDate = new Date(investigation.createdAt);
-
-      const matchesFromDate = !fromDate || investigationDate >= new Date(`${fromDate}T00:00:00`);
-
-      const matchesToDate = !toDate || investigationDate <= new Date(`${toDate}T23:59:59`);
-
-      return (
-        matchesSearch &&
-        matchesStatus &&
-        matchesCategory &&
-        matchesType &&
-        matchesSampleType &&
-        matchesFromDate &&
-        matchesToDate
-      );
-    });
   }, [
-    investigations,
+    currentPage,
+    pageSize,
     search,
     statusFilter,
     categoryFilter,
@@ -293,43 +339,70 @@ export default function InvestigationPage() {
     toDate,
   ]);
 
+  // Automatically fetch whenever pagination or filters change.
   useEffect(() => {
-    setCurrentPage(1);
-  }, [search, statusFilter, categoryFilter, typeFilter, sampleTypeFilter, fromDate, toDate]);
+    void loadInvestigations();
 
-  const totalPages = Math.max(1, Math.ceil(filteredInvestigations.length / pageSize));
+    return () => {
+      requestIdRef.current += 1;
+    };
+  }, [loadInvestigations]);
 
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [currentPage, totalPages]);
+  // --------------------------------------------------
+  // FILTER OPTIONS
+  // --------------------------------------------------
 
-  const paginatedInvestigations = useMemo(() => {
-    const startIndex = (currentPage - 1) * pageSize;
+  // These options are derived from the currently loaded page.
+  // A separate filter-options API can provide all available values.
+  const categories = useMemo(() => {
+    return Array.from(
+      new Set(
+        investigations
+          .map((item) => item.category)
+          .filter((value): value is string => Boolean(value && value.trim())),
+      ),
+    ).sort((a, b) => a.localeCompare(b));
+  }, [investigations]);
 
-    return filteredInvestigations.slice(startIndex, startIndex + pageSize);
-  }, [filteredInvestigations, currentPage, pageSize]);
+  const types = useMemo(() => {
+    return Array.from(
+      new Set(
+        investigations
+          .map((item) => item.type)
+          .filter((value): value is string => Boolean(value && value.trim())),
+      ),
+    ).sort((a, b) => a.localeCompare(b));
+  }, [investigations]);
 
-  const totalInvestigations = investigations.length;
+  const sampleTypes = useMemo(() => {
+    return Array.from(
+      new Set(
+        investigations
+          .map((item) => item.sampleType)
+          .filter((value): value is string => Boolean(value && value.trim())),
+      ),
+    ).sort((a, b) => a.localeCompare(b));
+  }, [investigations]);
 
-  const activeInvestigations = investigations.filter(
-    (investigation) => investigation.status === "ACTIVE",
-  ).length;
+  // Server already returns the current page.
+  const paginatedInvestigations = investigations;
 
-  const inactiveInvestigations = investigations.filter(
-    (investigation) => investigation.status === "INACTIVE",
-  ).length;
+  // --------------------------------------------------
+  // KPI COUNTS
+  // --------------------------------------------------
 
-  const totalSampleTypes = investigations.filter((investigation) =>
-    Boolean(investigation.sampleType?.trim()),
-  ).length;
+  const totalInvestigations = totalRecords;
 
-  const allCurrentPageSelected =
-    paginatedInvestigations.length > 0 &&
-    paginatedInvestigations.every((investigation) =>
-      selectedInvestigationIds.includes(investigation._id),
-    );
+  // These counts are for the currently loaded page, not all records.
+  const activeInvestigations = investigations.filter((item) => item.status === "ACTIVE").length;
+
+  const inactiveInvestigations = investigations.filter((item) => item.status === "INACTIVE").length;
+
+  const totalSampleTypes = investigations.filter((item) => Boolean(item.sampleType?.trim())).length;
+
+  // --------------------------------------------------
+  // FILTER STATUS
+  // --------------------------------------------------
 
   const hasActiveFilters =
     statusFilter !== "ALL" ||
@@ -339,6 +412,10 @@ export default function InvestigationPage() {
     Boolean(fromDate) ||
     Boolean(toDate);
 
+  const resetToFirstPage = () => {
+    setCurrentPage(1);
+  };
+
   const closeAndClearFilters = () => {
     setStatusFilter("ALL");
     setCategoryFilter("ALL");
@@ -346,22 +423,32 @@ export default function InvestigationPage() {
     setSampleTypeFilter("ALL");
     setFromDate("");
     setToDate("");
+    setCurrentPage(1);
     setFilterOpen(false);
   };
 
   const clearSearch = () => {
     setSearch("");
+    setCurrentPage(1);
   };
 
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      const currentIds = paginatedInvestigations.map((investigation) => investigation._id);
+  // --------------------------------------------------
+  // SELECTION
+  // --------------------------------------------------
 
+  const allCurrentPageSelected =
+    paginatedInvestigations.length > 0 &&
+    paginatedInvestigations.every((item) => selectedInvestigationIds.includes(item._id));
+
+  const handleSelectAll = (checked: boolean) => {
+    const currentIds = paginatedInvestigations.map((item) => item._id);
+
+    if (checked) {
       setSelectedInvestigationIds((previous) => Array.from(new Set([...previous, ...currentIds])));
     } else {
-      const currentIds = new Set(paginatedInvestigations.map((investigation) => investigation._id));
+      const currentIdSet = new Set(currentIds);
 
-      setSelectedInvestigationIds((previous) => previous.filter((id) => !currentIds.has(id)));
+      setSelectedInvestigationIds((previous) => previous.filter((id) => !currentIdSet.has(id)));
     }
   };
 
@@ -374,6 +461,10 @@ export default function InvestigationPage() {
       setSelectedInvestigationIds((previous) => previous.filter((id) => id !== investigationId));
     }
   };
+
+  // --------------------------------------------------
+  // VIEW DETAILS
+  // --------------------------------------------------
 
   const handleView = async (investigationId: string) => {
     setDetailsDialogOpen(true);
@@ -391,6 +482,10 @@ export default function InvestigationPage() {
       setDetailsLoading(false);
     }
   };
+
+  // --------------------------------------------------
+  // FORM
+  // --------------------------------------------------
 
   const handleEdit = (investigation: Investigation) => {
     setEditingInvestigation(investigation);
@@ -420,6 +515,7 @@ export default function InvestigationPage() {
     setFormOpen(false);
     setEditingInvestigation(null);
 
+    setCurrentPage(1);
     await loadInvestigations();
   };
 
@@ -428,15 +524,17 @@ export default function InvestigationPage() {
     setEditingInvestigation(null);
   };
 
+  // --------------------------------------------------
+  // STATUS CHANGE
+  // --------------------------------------------------
+
   const openStatusDialog = (investigation: Investigation) => {
     setStatusInvestigation(investigation);
     setStatusDialogOpen(true);
   };
 
   const handleStatusChange = async () => {
-    if (!statusInvestigation) {
-      return;
-    }
+    if (!statusInvestigation) return;
 
     setStatusChanging(true);
 
@@ -463,15 +561,18 @@ export default function InvestigationPage() {
     }
   };
 
+  // --------------------------------------------------
+  // DELETE
+  // --------------------------------------------------
+
   const openDeleteDialog = (investigation: Investigation) => {
     setDeleteTarget(investigation);
     setDeleteMode("SINGLE");
     setDeleteDialogOpen(true);
   };
+
   const openBulkDeleteDialog = () => {
-    if (selectedInvestigationIds.length === 0) {
-      return;
-    }
+    if (selectedInvestigationIds.length === 0) return;
 
     setDeleteTarget(null);
     setDeleteMode("BULK");
@@ -479,9 +580,7 @@ export default function InvestigationPage() {
   };
 
   const handleDelete = async () => {
-    if (!deleteTarget) {
-      return;
-    }
+    if (!deleteTarget) return;
 
     setDeleting(true);
 
@@ -502,9 +601,7 @@ export default function InvestigationPage() {
   };
 
   const handleBulkDelete = async () => {
-    if (selectedInvestigationIds.length === 0) {
-      return;
-    }
+    if (selectedInvestigationIds.length === 0) return;
 
     setDeleting(true);
 
@@ -520,6 +617,7 @@ export default function InvestigationPage() {
       setSelectedInvestigationIds([]);
       setDeleteDialogOpen(false);
       setDeleteTarget(null);
+
       await loadInvestigations();
     } catch (error) {
       toast.error(getApiErrorMessage(error));
@@ -527,23 +625,28 @@ export default function InvestigationPage() {
       setDeleting(false);
     }
   };
+
+  // --------------------------------------------------
+  // EXCEL EXPORT
+  // --------------------------------------------------
+
   const exportExcel = () => {
-    if (filteredInvestigations.length === 0) {
-      toast.error("There are no investigation records to export.");
+    if (investigations.length === 0) {
+      toast.error("There are no investigation records on this page to export.");
       return;
     }
 
-    const rows = filteredInvestigations.map((investigation) => ({
-      "Investigation Name": investigation.investigationName,
-      "Investigation Code": investigation.investigationCode,
-      "LOINC Code": investigation.loincCode ?? "",
-      Category: investigation.category ?? "",
-      Type: investigation.type ?? "",
-      "Sample Type": investigation.sampleType ?? "",
-      "Turnaround Time (Minutes)": investigation.turnaroundTime ?? "",
-      Description: investigation.description ?? "",
-      Status: investigation.status,
-      "Created Date": formatDate(investigation.createdAt),
+    const rows = investigations.map((item) => ({
+      "Investigation Name": item.investigationName,
+      "Investigation Code": item.investigationCode,
+      "LOINC Code": item.loincCode ?? "",
+      Category: item.category ?? "",
+      Type: item.type ?? "",
+      "Sample Type": item.sampleType ?? "",
+      "Turnaround Time (Minutes)": item.turnaroundTime ?? "",
+      Description: item.description ?? "",
+      Status: item.status,
+      "Created Date": formatDate(item.createdAt),
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(rows);
@@ -558,14 +661,21 @@ export default function InvestigationPage() {
       { wch: 20 },
       { wch: 20 },
       { wch: 18 },
-      { wch: 12 },
+      { wch: 20 },
+      { wch: 30 },
+      { wch: 15 },
       { wch: 18 },
     ];
 
     XLSX.writeFile(workbook, "investigation-report.xlsx");
 
-    toast.success("Investigation Excel file exported successfully.");
+    toast.success("Current page exported to Excel successfully.");
   };
+
+  // --------------------------------------------------
+  // PDF EXPORT
+  // --------------------------------------------------
+
   const exportPDF = () => {
     if (investigations.length === 0) {
       toast.error("No investigation records available to download.");
@@ -581,68 +691,70 @@ export default function InvestigationPage() {
         columns: [
           {
             header: "Sr. No.",
-            value: (item: Investigation) => {
-              const index = investigations.findIndex(
-                (investigation) => investigation._id === item._id,
-              );
+            value: (item) => {
+              const index = investigations.findIndex((record) => record._id === item._id);
 
-              return index + 1;
+              return (currentPage - 1) * pageSize + index + 1;
             },
           },
           {
             header: "Investigation Name",
-            value: (item: Investigation) => item.investigationName,
+            value: (item) => item.investigationName,
           },
           {
             header: "Investigation Code",
-            value: (item: Investigation) => item.investigationCode,
+            value: (item) => item.investigationCode,
           },
           {
             header: "LOINC Code",
-            value: (item: Investigation) => item.loincCode,
+            value: (item) => item.loincCode,
           },
           {
             header: "Category",
-            value: (item: Investigation) => item.category,
+            value: (item) => item.category,
           },
           {
             header: "Type",
-            value: (item: Investigation) => item.type,
+            value: (item) => item.type,
           },
           {
             header: "Sample Type",
-            value: (item: Investigation) => item.sampleType,
+            value: (item) => item.sampleType,
           },
           {
             header: "Turnaround Time",
-            value: (item: Investigation) =>
-              item.turnaroundTime != null ? `${item.turnaroundTime} minutes` : "-",
+            value: (item) => (item.turnaroundTime != null ? `${item.turnaroundTime} minutes` : "-"),
           },
           {
             header: "Status",
-            value: (item: Investigation) => item.status,
+            value: (item) => item.status,
           },
           {
             header: "Created By",
-            value: (item: Investigation) => item.createdBy,
+            value: (item) => item.createdBy,
           },
           {
             header: "Created Date",
-            value: (item: Investigation) => formatDate(item.createdAt),
+            value: (item) => formatDate(item.createdAt),
           },
         ],
 
         rows: investigations,
       });
 
-      toast.success("Investigation PDF downloaded successfully.");
+      toast.success("Current page PDF downloaded successfully.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to generate investigation PDF.");
     }
   };
+
   const printReport = () => {
     window.print();
   };
+
+  // --------------------------------------------------
+  // TABLE COLUMNS
+  // --------------------------------------------------
 
   const columns: DataTableColumn<Investigation>[] = [
     {
@@ -660,7 +772,7 @@ export default function InvestigationPage() {
       key: "number",
       header: "S.No.",
       render: (investigation) => {
-        const index = filteredInvestigations.findIndex((item) => item._id === investigation._id);
+        const index = paginatedInvestigations.findIndex((item) => item._id === investigation._id);
 
         return (currentPage - 1) * pageSize + index + 1;
       },
@@ -762,6 +874,10 @@ export default function InvestigationPage() {
     },
   ];
 
+  // --------------------------------------------------
+  // RENDER
+  // --------------------------------------------------
+
   return (
     <PageContainer>
       {loading && investigations.length === 0 ? (
@@ -772,16 +888,16 @@ export default function InvestigationPage() {
 
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary ">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
                 <FlaskConical className="h-5 w-5" />
               </div>
 
               <div>
-                <h1 className="text-2xl font-semibold tracking-tight bg-zinc-50 border-zinc-200">
+                <h1 className="border-zinc-200 bg-zinc-50 text-2xl font-semibold tracking-tight">
                   Investigation Management
                 </h1>
 
-                <p className="text-sm text-muted-foreground ">
+                <p className="text-sm text-muted-foreground">
                   Manage investigation and diagnostic test master data.
                 </p>
               </div>
@@ -789,11 +905,12 @@ export default function InvestigationPage() {
           </div>
 
           {/* KPI CARDS */}
+
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <KpiCard
               title="Total Investigations"
               value={totalInvestigations}
-              description="All investigation records"
+              description="All matching investigation records"
               icon={FileText}
               className="border-sky-200 bg-sky-50/60"
               iconClassName="bg-sky-100 text-sky-600"
@@ -802,7 +919,7 @@ export default function InvestigationPage() {
             <KpiCard
               title="Active"
               value={activeInvestigations}
-              description="Currently active"
+              description="On current page"
               icon={Activity}
               className="border-emerald-200 bg-emerald-50/60"
               iconClassName="bg-emerald-100 text-emerald-600"
@@ -811,16 +928,16 @@ export default function InvestigationPage() {
             <KpiCard
               title="Inactive"
               value={inactiveInvestigations}
-              description="Currently inactive"
+              description="On current page"
               icon={X}
               className="border-rose-200 bg-rose-50/60"
               iconClassName="bg-rose-100 text-rose-600"
             />
 
             <KpiCard
-              title="Total Sample Types"
+              title="Records with Sample Type"
               value={totalSampleTypes}
-              description="Records with sample type"
+              description="On current page"
               icon={FlaskConical}
               className="border-violet-200 bg-violet-50/60"
               iconClassName="bg-violet-100 text-violet-600"
@@ -828,15 +945,15 @@ export default function InvestigationPage() {
           </div>
 
           {/* INVESTIGATION LIST */}
+
           <section className="overflow-hidden rounded-xl border border-slate-200 bg-background shadow-sm">
             {/* LIST HEADER */}
+
             <div className="flex flex-col gap-4 border-b border-slate-200 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <h2 className="text-lg font-semibold">Investigation List</h2>
 
-                <p className="text-sm text-muted-foreground">
-                  Total Records: {filteredInvestigations.length}
-                </p>
+                <p className="text-sm text-muted-foreground">Total Records: {totalRecords}</p>
               </div>
 
               <div className="print-hide flex flex-wrap items-center gap-2">
@@ -857,6 +974,7 @@ export default function InvestigationPage() {
                   <Download className="mr-2 h-4 w-4" />
                   Export Excel
                 </Button>
+
                 <Button
                   type="button"
                   variant="outline"
@@ -867,13 +985,15 @@ export default function InvestigationPage() {
                   <FileDown className="mr-2 h-4 w-4" />
                   Download PDF
                 </Button>
+
                 <Button type="button" variant="outline" size="sm" onClick={printReport}>
                   <Printer className="mr-2 h-4 w-4" />
                   Print Report
                 </Button>
+
                 <div className="flex items-center gap-2">
                   <RefreshButton onRefresh={() => void loadInvestigations()} loading={loading} />
-                  {/*  Add Investigation button  */}
+
                   <Button type="button" size="sm" onClick={handleAdd}>
                     <Plus className="mr-2 h-4 w-4" />
                     Add New Investigation
@@ -881,19 +1001,22 @@ export default function InvestigationPage() {
                 </div>
               </div>
             </div>
+
             {/* FILTER BAR */}
+
             <div className="print-hide border-b border-slate-200 px-5 py-4">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-                {/* SEARCH */}
                 <SearchInput
                   value={search}
-                  onChange={setSearch}
+                  onChange={(value) => {
+                    setSearch(value);
+                    setCurrentPage(1);
+                  }}
                   onClear={clearSearch}
                   placeholder="Search by name, code..."
                   containerClassName="lg:max-w-md"
                 />
 
-                {/* FILTER BUTTON */}
                 <div className="flex items-center gap-1">
                   <Button
                     type="button"
@@ -918,6 +1041,7 @@ export default function InvestigationPage() {
                       </span>
                     )}
                   </Button>
+
                   {hasActiveFilters && (
                     <Button
                       type="button"
@@ -933,16 +1057,25 @@ export default function InvestigationPage() {
                   )}
                 </div>
               </div>
+
               {/* FILTER PANEL */}
+
               {filterOpen && (
                 <div className="mt-4 rounded-lg border border-slate-200 bg-muted/20 p-4">
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
                     {/* STATUS */}
+
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Status</label>
 
                       <div className="flex items-center gap-2">
-                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                        <Select
+                          value={statusFilter}
+                          onValueChange={(value) => {
+                            setStatusFilter(value as InvestigationStatus | "ALL");
+                            resetToFirstPage();
+                          }}
+                        >
                           <SelectTrigger className="flex-1">
                             <SelectValue />
                           </SelectTrigger>
@@ -961,7 +1094,10 @@ export default function InvestigationPage() {
                             size="icon"
                             title="Clear status filter"
                             aria-label="Clear status filter"
-                            onClick={() => setStatusFilter("ALL")}
+                            onClick={() => {
+                              setStatusFilter("ALL");
+                              resetToFirstPage();
+                            }}
                             className="h-9 w-9 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                           >
                             <X className="h-4 w-4" />
@@ -971,11 +1107,18 @@ export default function InvestigationPage() {
                     </div>
 
                     {/* CATEGORY */}
+
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Category</label>
 
                       <div className="flex items-center gap-2">
-                        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                        <Select
+                          value={categoryFilter}
+                          onValueChange={(value) => {
+                            setCategoryFilter(value);
+                            resetToFirstPage();
+                          }}
+                        >
                           <SelectTrigger className="flex-1">
                             <SelectValue />
                           </SelectTrigger>
@@ -998,7 +1141,10 @@ export default function InvestigationPage() {
                             size="icon"
                             title="Clear category filter"
                             aria-label="Clear category filter"
-                            onClick={() => setCategoryFilter("ALL")}
+                            onClick={() => {
+                              setCategoryFilter("ALL");
+                              resetToFirstPage();
+                            }}
                             className="h-9 w-9 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                           >
                             <X className="h-4 w-4" />
@@ -1008,11 +1154,18 @@ export default function InvestigationPage() {
                     </div>
 
                     {/* TYPE */}
+
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Type</label>
 
                       <div className="flex items-center gap-2">
-                        <Select value={typeFilter} onValueChange={setTypeFilter}>
+                        <Select
+                          value={typeFilter}
+                          onValueChange={(value) => {
+                            setTypeFilter(value);
+                            resetToFirstPage();
+                          }}
+                        >
                           <SelectTrigger className="flex-1">
                             <SelectValue />
                           </SelectTrigger>
@@ -1035,7 +1188,10 @@ export default function InvestigationPage() {
                             size="icon"
                             title="Clear type filter"
                             aria-label="Clear type filter"
-                            onClick={() => setTypeFilter("ALL")}
+                            onClick={() => {
+                              setTypeFilter("ALL");
+                              resetToFirstPage();
+                            }}
                             className="h-9 w-9 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                           >
                             <X className="h-4 w-4" />
@@ -1045,11 +1201,18 @@ export default function InvestigationPage() {
                     </div>
 
                     {/* SAMPLE TYPE */}
+
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Sample Type</label>
 
                       <div className="flex items-center gap-2">
-                        <Select value={sampleTypeFilter} onValueChange={setSampleTypeFilter}>
+                        <Select
+                          value={sampleTypeFilter}
+                          onValueChange={(value) => {
+                            setSampleTypeFilter(value);
+                            resetToFirstPage();
+                          }}
+                        >
                           <SelectTrigger className="flex-1">
                             <SelectValue />
                           </SelectTrigger>
@@ -1072,7 +1235,10 @@ export default function InvestigationPage() {
                             size="icon"
                             title="Clear sample type filter"
                             aria-label="Clear sample type filter"
-                            onClick={() => setSampleTypeFilter("ALL")}
+                            onClick={() => {
+                              setSampleTypeFilter("ALL");
+                              resetToFirstPage();
+                            }}
                             className="h-9 w-9 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                           >
                             <X className="h-4 w-4" />
@@ -1082,6 +1248,7 @@ export default function InvestigationPage() {
                     </div>
 
                     {/* FROM DATE */}
+
                     <div className="space-y-2">
                       <label className="text-sm font-medium">From Date</label>
 
@@ -1089,7 +1256,11 @@ export default function InvestigationPage() {
                         <Input
                           type="date"
                           value={fromDate}
-                          onChange={(event) => setFromDate(event.target.value)}
+                          max={toDate || undefined}
+                          onChange={(event) => {
+                            setFromDate(event.target.value);
+                            resetToFirstPage();
+                          }}
                           className="flex-1"
                         />
 
@@ -1100,7 +1271,10 @@ export default function InvestigationPage() {
                             size="icon"
                             title="Clear from date"
                             aria-label="Clear from date"
-                            onClick={() => setFromDate("")}
+                            onClick={() => {
+                              setFromDate("");
+                              resetToFirstPage();
+                            }}
                             className="h-9 w-9 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                           >
                             <X className="h-4 w-4" />
@@ -1110,6 +1284,7 @@ export default function InvestigationPage() {
                     </div>
 
                     {/* TO DATE */}
+
                     <div className="space-y-2">
                       <label className="text-sm font-medium">To Date</label>
 
@@ -1117,7 +1292,11 @@ export default function InvestigationPage() {
                         <Input
                           type="date"
                           value={toDate}
-                          onChange={(event) => setToDate(event.target.value)}
+                          min={fromDate || undefined}
+                          onChange={(event) => {
+                            setToDate(event.target.value);
+                            resetToFirstPage();
+                          }}
                           className="flex-1"
                         />
 
@@ -1128,7 +1307,10 @@ export default function InvestigationPage() {
                             size="icon"
                             title="Clear to date"
                             aria-label="Clear to date"
-                            onClick={() => setToDate("")}
+                            onClick={() => {
+                              setToDate("");
+                              resetToFirstPage();
+                            }}
                             className="h-9 w-9 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                           >
                             <X className="h-4 w-4" />
@@ -1142,8 +1324,10 @@ export default function InvestigationPage() {
             </div>
 
             {/* TABLE */}
+
             <div className="px-5">
               {/* SELECT ALL */}
+
               {!loading && paginatedInvestigations.length > 0 && (
                 <div className="print-hide flex items-center gap-2 border-t border-slate-200 px-5 py-3">
                   <Checkbox
@@ -1155,6 +1339,7 @@ export default function InvestigationPage() {
                   <span className="text-sm text-muted-foreground">Select all on this page</span>
                 </div>
               )}
+
               <DataTable
                 columns={columns}
                 data={paginatedInvestigations}
@@ -1169,7 +1354,8 @@ export default function InvestigationPage() {
             </div>
 
             {/* PAGINATION */}
-            {!loading && filteredInvestigations.length > 0 && (
+
+            {!loading && totalRecords > 0 && (
               <div className="print-hide flex flex-col gap-3 border-t border-slate-200 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <DataTablePageSize
                   value={pageSize}
@@ -1182,13 +1368,19 @@ export default function InvestigationPage() {
                 <DataTablePagination
                   currentPage={currentPage}
                   totalPages={totalPages}
-                  onPageChange={setCurrentPage}
+                  onPageChange={(page) => {
+                    // Protect the backend from page=0.
+                    const safePage = Math.max(1, Math.min(page, totalPages || 1));
+
+                    setCurrentPage(safePage);
+                  }}
                 />
               </div>
             )}
           </section>
 
           {/* ERROR STATE */}
+
           {loadError && !loading && (
             <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-center">
               <p className="font-medium text-destructive">Unable to load investigations</p>
@@ -1207,12 +1399,11 @@ export default function InvestigationPage() {
           )}
 
           {/* ADD / EDIT FORM */}
+
           <FormDialog
             open={formOpen}
             onOpenChange={(open) => {
-              if (!open) {
-                handleFormCancel();
-              }
+              if (!open) handleFormCancel();
             }}
             title={editingInvestigation ? "Edit Investigation" : "Add New Investigation"}
             description={
@@ -1229,6 +1420,7 @@ export default function InvestigationPage() {
           </FormDialog>
 
           {/* VIEW DETAILS */}
+
           <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
             <DialogContent className="max-w-3xl">
               <DialogHeader>
@@ -1354,6 +1546,7 @@ export default function InvestigationPage() {
           </Dialog>
 
           {/* STATUS CONFIRMATION */}
+
           <AlertDialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
             <AlertDialogContent>
               <AlertDialogHeader>
@@ -1382,7 +1575,9 @@ export default function InvestigationPage() {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
-          {/*delete confirm*/}
+
+          {/* DELETE CONFIRMATION */}
+
           <ConfirmDialog
             open={deleteDialogOpen}
             onOpenChange={setDeleteDialogOpen}
