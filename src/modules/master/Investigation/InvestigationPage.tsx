@@ -125,7 +125,15 @@ const formatDate = (dateValue?: string | null): string => {
     year: "numeric",
   });
 };
+const getCreatedByName = (value: Investigation["createdBy"]): string => {
+  if (!value) return "-";
 
+  if (typeof value === "string") {
+    return value;
+  }
+
+  return value.name || value.fullName || value.username || value.email || "-";
+};
 // --------------------------------------------------
 // STATUS BADGE
 // --------------------------------------------------
@@ -194,7 +202,7 @@ export default function InvestigationPage() {
   const [filterOpen, setFilterOpen] = useState(false);
 
   const [search, setSearch] = useState("");
-
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<InvestigationStatus | "ALL">("ALL");
 
   const [categoryFilter, setCategoryFilter] = useState("ALL");
@@ -217,7 +225,12 @@ export default function InvestigationPage() {
   // --------------------------------------------------
 
   const [selectedInvestigationIds, setSelectedInvestigationIds] = useState<string[]>([]);
-
+  const [listStats, setListStats] = useState<{
+    totalInvestigations: number;
+    activeInvestigations: number;
+    inactiveInvestigations: number;
+    totalSampleTypes: number;
+  } | null>(null);
   // --------------------------------------------------
   // VIEW DETAILS
   // --------------------------------------------------
@@ -271,20 +284,13 @@ export default function InvestigationPage() {
       const result = await getInvestigations({
         page: safePage,
         limit: safeLimit,
-
-        search: search.trim(),
-
+        search: debouncedSearch,
         status: statusFilter === "ALL" ? undefined : statusFilter,
-
         category: categoryFilter === "ALL" ? undefined : categoryFilter,
-
         type: typeFilter === "ALL" ? undefined : typeFilter,
-
         sampleType: sampleTypeFilter === "ALL" ? undefined : sampleTypeFilter,
-
         fromDate: fromDate || undefined,
         toDate: toDate || undefined,
-
         sortBy: "createdAt",
         sortOrder: "desc",
       });
@@ -297,7 +303,7 @@ export default function InvestigationPage() {
 
       setInvestigations(records);
       setTotalRecords(pagination.totalRecords ?? 0);
-      setTotalPages(pagination.totalPages ?? 0);
+      setListStats(result.stats ?? null);
 
       setSelectedInvestigationIds([]);
 
@@ -320,7 +326,7 @@ export default function InvestigationPage() {
       setInvestigations([]);
       setTotalRecords(0);
       setTotalPages(0);
-
+      setListStats(null);
       toast.error(message);
     } finally {
       if (requestId === requestIdRef.current) {
@@ -338,7 +344,13 @@ export default function InvestigationPage() {
     fromDate,
     toDate,
   ]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedSearch(search.trim());
+    }, 400);
 
+    return () => window.clearTimeout(timer);
+  }, [search]);
   // Automatically fetch whenever pagination or filters change.
   useEffect(() => {
     void loadInvestigations();
@@ -390,15 +402,11 @@ export default function InvestigationPage() {
   // --------------------------------------------------
   // KPI COUNTS
   // --------------------------------------------------
-
   const totalInvestigations = totalRecords;
 
-  // These counts are for the currently loaded page, not all records.
-  const activeInvestigations = investigations.filter((item) => item.status === "ACTIVE").length;
-
-  const inactiveInvestigations = investigations.filter((item) => item.status === "INACTIVE").length;
-
-  const totalSampleTypes = investigations.filter((item) => Boolean(item.sampleType?.trim())).length;
+  const activeInvestigations = listStats?.activeInvestigations ?? 0;
+  const inactiveInvestigations = listStats?.inactiveInvestigations ?? 0;
+  const totalSampleTypes = listStats?.totalSampleTypes ?? 0;
 
   // --------------------------------------------------
   // FILTER STATUS
@@ -629,23 +637,23 @@ export default function InvestigationPage() {
   // --------------------------------------------------
   // EXCEL EXPORT
   // --------------------------------------------------
-
   const exportExcel = () => {
     if (investigations.length === 0) {
       toast.error("There are no investigation records on this page to export.");
       return;
     }
 
-    const rows = investigations.map((item) => ({
+    const rows = investigations.map((item, index) => ({
+      "Sr. No.": (currentPage - 1) * pageSize + index + 1,
       "Investigation Name": item.investigationName,
       "Investigation Code": item.investigationCode,
-      "LOINC Code": item.loincCode ?? "",
-      Category: item.category ?? "",
-      Type: item.type ?? "",
-      "Sample Type": item.sampleType ?? "",
-      "Turnaround Time (Minutes)": item.turnaroundTime ?? "",
-      Description: item.description ?? "",
+      "LOINC Code": item.loincCode ?? "-",
+      Category: item.category ?? "-",
+      Type: item.type ?? "-",
+      "Sample Type": item.sampleType ?? "-",
+      "Turnaround Time": item.turnaroundTime != null ? `${item.turnaroundTime} minutes` : "-",
       Status: item.status,
+      "Created By": getCreatedByName(item.createdBy),
       "Created Date": formatDate(item.createdAt),
     }));
 
@@ -655,15 +663,16 @@ export default function InvestigationPage() {
     XLSX.utils.book_append_sheet(workbook, worksheet, "Investigations");
 
     worksheet["!cols"] = [
+      { wch: 10 },
       { wch: 28 },
-      { wch: 18 },
+      { wch: 20 },
       { wch: 16 },
       { wch: 20 },
       { wch: 20 },
       { wch: 18 },
-      { wch: 20 },
-      { wch: 30 },
+      { wch: 22 },
       { wch: 15 },
+      { wch: 25 },
       { wch: 18 },
     ];
 
@@ -731,7 +740,7 @@ export default function InvestigationPage() {
           },
           {
             header: "Created By",
-            value: (item) => item.createdBy,
+            value: (item) => getCreatedByName(item.createdBy),
           },
           {
             header: "Created Date",
@@ -783,10 +792,6 @@ export default function InvestigationPage() {
       render: (investigation) => (
         <div className="min-w-[180px]">
           <p className="font-medium">{investigation.investigationName}</p>
-
-          {investigation.loincCode && (
-            <p className="text-xs text-muted-foreground">LOINC: {investigation.loincCode}</p>
-          )}
         </div>
       ),
     },
@@ -798,6 +803,11 @@ export default function InvestigationPage() {
       ),
     },
     {
+      key: "loincCode",
+      header: "LOINC Code",
+      render: (investigation) => investigation.loincCode || "-",
+    },
+    {
       key: "category",
       header: "Category",
       render: (investigation) => investigation.category || "-",
@@ -806,6 +816,17 @@ export default function InvestigationPage() {
       key: "type",
       header: "Type",
       render: (investigation) => investigation.type || "-",
+    },
+    {
+      key: "sampleType",
+      header: "Sample Type",
+      render: (investigation) => investigation.sampleType || "-",
+    },
+    {
+      key: "turnaroundTime",
+      header: "Turnaround Time",
+      render: (investigation) =>
+        investigation.turnaroundTime != null ? `${investigation.turnaroundTime} minutes` : "-",
     },
     {
       key: "status",
@@ -820,6 +841,11 @@ export default function InvestigationPage() {
           <StatusBadge status={investigation.status} />
         </button>
       ),
+    },
+    {
+      key: "createdBy",
+      header: "Created By",
+      render: (investigation) => getCreatedByName(investigation.createdBy),
     },
     {
       key: "createdAt",
@@ -881,7 +907,7 @@ export default function InvestigationPage() {
   return (
     <PageContainer>
       {loading && investigations.length === 0 ? (
-        <DataTableSkeleton rows={8} columns={9} statCards={4} showHeader showToolbar />
+        <DataTableSkeleton rows={8} columns={13} statCards={4} showHeader showToolbar />
       ) : (
         <div className="print-area space-y-6">
           {/* PAGE HEADER */}

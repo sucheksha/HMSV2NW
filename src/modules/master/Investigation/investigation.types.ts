@@ -22,7 +22,15 @@ export interface Investigation {
 
   hospitalId: string;
   status: InvestigationStatus;
-  createdBy: string;
+  createdBy:
+    | string
+    | {
+        _id: string;
+        name?: string;
+        fullName?: string;
+        username?: string;
+        email?: string;
+      };
   updatedBy?: string | null;
   deletedBy?: string | null;
   deletedAt?: string | null;
@@ -68,6 +76,7 @@ export interface InvestigationPagination {
 export interface InvestigationListData {
   investigations: Investigation[];
   pagination: InvestigationPagination;
+  stats: InvestigationStats;
 }
 
 export type InvestigationListResponse = {
@@ -92,8 +101,17 @@ export interface InvestigationQueryParams {
   search?: string;
   category?: string;
   type?: string;
+  sampleType?: string;
   status?: InvestigationStatus;
   modalityId?: string;
+  fromDate?: string;
+  toDate?: string;
   sortBy?: string;
   sortOrder?: "asc" | "desc";
+}
+export interface InvestigationStats {
+  totalInvestigations: number;
+  activeInvestigations: number;
+  inactiveInvestigations: number;
+  totalSampleTypes: number;
 }
