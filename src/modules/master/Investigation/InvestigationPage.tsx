@@ -187,7 +187,7 @@ export default function InvestigationPage() {
 
   const [totalRecords, setTotalRecords] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
-
+  const [hasLoaded, setHasLoaded] = useState(false);
   // --------------------------------------------------
   // SERVER-SIDE PAGINATION
   // --------------------------------------------------
@@ -331,6 +331,7 @@ export default function InvestigationPage() {
     } finally {
       if (requestId === requestIdRef.current) {
         setLoading(false);
+        setHasLoaded(true);
       }
     }
   }, [
@@ -437,6 +438,7 @@ export default function InvestigationPage() {
 
   const clearSearch = () => {
     setSearch("");
+    setDebouncedSearch("");
     setCurrentPage(1);
   };
 
@@ -906,7 +908,7 @@ export default function InvestigationPage() {
 
   return (
     <PageContainer>
-      {loading && investigations.length === 0 ? (
+      {loading && !hasLoaded ? (
         <DataTableSkeleton rows={8} columns={13} statCards={4} showHeader showToolbar />
       ) : (
         <div className="print-area space-y-6">
