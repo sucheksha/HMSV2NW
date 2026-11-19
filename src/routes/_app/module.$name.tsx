@@ -9,7 +9,7 @@ import DiagnosisPage from "@/modules/master/diagnosis/diagnosisPage";
 import InvestigationPage from "@/modules/master/Investigation/InvestigationPage";
 import LocationPage from "@/modules/master/location/LocationPage";
 import RolePage from "@/modules/master/roles/RolePage";
-
+import ImagingScanningPage from "@/modules/master/imaging-scanning/imaging-scanning";
 export const Route = createFileRoute("/_app/module/$name")({
   component: ModuleStub,
 });
@@ -35,6 +35,9 @@ function ModuleStub() {
 
   if (name === "investigation") {
     return <InvestigationPage />;
+  }
+  if (name === "imaging-scanning") {
+    return <ImagingScanningPage />;
   }
 
   if (name === "location") {

@@ -125,14 +125,18 @@ const formatDate = (dateValue?: string | null): string => {
     year: "numeric",
   });
 };
-const getCreatedByName = (value: Investigation["createdBy"]): string => {
-  if (!value) return "-";
-
-  if (typeof value === "string") {
-    return value;
+const getModalityDetails = (value: Investigation["modalityId"]) => {
+  if (!value || typeof value === "string") {
+    return {
+      name: "-",
+      code: "-",
+    };
   }
 
-  return value.name || value.fullName || value.username || value.email || "-";
+  return {
+    name: value.modalityName || "-",
+    code: value.modalityCode || "-",
+  };
 };
 // --------------------------------------------------
 // STATUS BADGE
@@ -303,6 +307,7 @@ export default function InvestigationPage() {
 
       setInvestigations(records);
       setTotalRecords(pagination.totalRecords ?? 0);
+      setTotalPages(pagination.totalPages ?? 0);
       setListStats(result.stats ?? null);
 
       setSelectedInvestigationIds([]);
@@ -337,7 +342,7 @@ export default function InvestigationPage() {
   }, [
     currentPage,
     pageSize,
-    search,
+    debouncedSearch,
     statusFilter,
     categoryFilter,
     typeFilter,
@@ -645,19 +650,24 @@ export default function InvestigationPage() {
       return;
     }
 
-    const rows = investigations.map((item, index) => ({
-      "Sr. No.": (currentPage - 1) * pageSize + index + 1,
-      "Investigation Name": item.investigationName,
-      "Investigation Code": item.investigationCode,
-      "LOINC Code": item.loincCode ?? "-",
-      Category: item.category ?? "-",
-      Type: item.type ?? "-",
-      "Sample Type": item.sampleType ?? "-",
-      "Turnaround Time": item.turnaroundTime != null ? `${item.turnaroundTime} minutes` : "-",
-      Status: item.status,
-      "Created By": getCreatedByName(item.createdBy),
-      "Created Date": formatDate(item.createdAt),
-    }));
+    const rows = investigations.map((item, index) => {
+      const modality = getModalityDetails(item.modalityId);
+
+      return {
+        "Sr. No.": (currentPage - 1) * pageSize + index + 1,
+        "Investigation Name": item.investigationName,
+        "Investigation Code": item.investigationCode,
+        "LOINC Code": item.loincCode ?? "-",
+        Category: item.category ?? "-",
+        Type: item.type ?? "-",
+        "Sample Type": item.sampleType ?? "-",
+        Modality: modality.name,
+        "Modality Code": modality.code,
+        "Turnaround Time": item.turnaroundTime != null ? `${item.turnaroundTime} minutes` : "-",
+        Status: item.status,
+        "Created Date": formatDate(item.createdAt),
+      };
+    });
 
     const worksheet = XLSX.utils.json_to_sheet(rows);
     const workbook = XLSX.utils.book_new();
@@ -666,15 +676,16 @@ export default function InvestigationPage() {
 
     worksheet["!cols"] = [
       { wch: 10 },
-      { wch: 28 },
+      { wch: 30 },
       { wch: 20 },
       { wch: 16 },
       { wch: 20 },
       { wch: 20 },
       { wch: 18 },
+      { wch: 20 },
+      { wch: 16 },
       { wch: 22 },
       { wch: 15 },
-      { wch: 25 },
       { wch: 18 },
     ];
 
@@ -733,16 +744,20 @@ export default function InvestigationPage() {
             value: (item) => item.sampleType,
           },
           {
+            header: "Modality",
+            value: (item) => getModalityDetails(item.modalityId).name,
+          },
+          {
+            header: "Modality Code",
+            value: (item) => getModalityDetails(item.modalityId).code,
+          },
+          {
             header: "Turnaround Time",
             value: (item) => (item.turnaroundTime != null ? `${item.turnaroundTime} minutes` : "-"),
           },
           {
             header: "Status",
             value: (item) => item.status,
-          },
-          {
-            header: "Created By",
-            value: (item) => getCreatedByName(item.createdBy),
           },
           {
             header: "Created Date",
@@ -825,6 +840,22 @@ export default function InvestigationPage() {
       render: (investigation) => investigation.sampleType || "-",
     },
     {
+      key: "modality",
+      header: "Modality",
+      render: (investigation) => {
+        const modality = getModalityDetails(investigation.modalityId);
+
+        return (
+          <div className="min-w-[130px]">
+            <p className="font-medium">{modality.name}</p>
+            {modality.code !== "-" && (
+              <p className="text-xs text-muted-foreground">{modality.code}</p>
+            )}
+          </div>
+        );
+      },
+    },
+    {
       key: "turnaroundTime",
       header: "Turnaround Time",
       render: (investigation) =>
@@ -844,11 +875,7 @@ export default function InvestigationPage() {
         </button>
       ),
     },
-    {
-      key: "createdBy",
-      header: "Created By",
-      render: (investigation) => getCreatedByName(investigation.createdBy),
-    },
+
     {
       key: "createdAt",
       header: "Created Date",
@@ -1503,6 +1530,15 @@ export default function InvestigationPage() {
                     <DetailItem label="Type" value={selectedInvestigation.type} />
 
                     <DetailItem label="Sample Type" value={selectedInvestigation.sampleType} />
+                    <DetailItem
+                      label="Modality"
+                      value={getModalityDetails(selectedInvestigation.modalityId).name}
+                    />
+
+                    <DetailItem
+                      label="Modality Code"
+                      value={getModalityDetails(selectedInvestigation.modalityId).code}
+                    />
 
                     <DetailItem
                       label="Turnaround Time"
