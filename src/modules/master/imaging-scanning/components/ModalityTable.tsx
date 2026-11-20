@@ -1,41 +1,85 @@
-import { Eye, Pencil, Trash2 } from "lucide-react";
+
+import { ChevronDown, Edit, Eye, Trash2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 
-import { DataTable, type DataTableColumn } from "@/components/common/DataTable/DataTable";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+import {
+  DataTable,
+  type DataTableColumn,
+} from "@/components/common/DataTable";
 
 import type { Modality } from "../imagingScanning.types";
 
 type ModalityTableProps = {
   modalities: Modality[];
   loading: boolean;
+  selectedIds: string[];
+  onSelectionChange: (ids: string[]) => void;
   onView: (modality: Modality) => void;
   onEdit: (modality: Modality) => void;
   onDelete: (modality: Modality) => void;
+  onStatusClick: (modality: Modality) => void;
 };
 
 export function ModalityTable({
   modalities,
   loading,
+  selectedIds,
+  onSelectionChange,
   onView,
   onEdit,
   onDelete,
+  onStatusClick,
 }: ModalityTableProps) {
+  const handleSelectRow = (modalityId: string, checked: boolean) => {
+    if (checked) {
+      onSelectionChange(
+        selectedIds.includes(modalityId)
+          ? selectedIds
+          : [...selectedIds, modalityId],
+      );
+    } else {
+      onSelectionChange(selectedIds.filter((id) => id !== modalityId));
+    }
+  };
+
   const columns: DataTableColumn<Modality>[] = [
+    {
+      key: "select",
+      header: "",
+      headerClassName: "print:hidden",
+      cellClassName: "print:hidden",
+      render: (modality) => (
+        <Checkbox
+          checked={selectedIds.includes(modality._id)}
+          onCheckedChange={(checked) =>
+            handleSelectRow(modality._id, checked === true)
+          }
+          aria-label={`Select ${modality.modalityName}`}
+        />
+      ),
+    },
     {
       key: "modalityCode",
       header: "Code",
-      headerClassName: "w-[140px] font-semibold",
-      cellClassName: "font-medium",
-      render: (modality) => modality.modalityCode,
+      render: (modality) => (
+        <span className="font-medium">{modality.modalityCode}</span>
+      ),
     },
     {
       key: "modalityName",
       header: "Name",
-      headerClassName: "font-semibold",
       render: (modality) => (
-        <div>
+        <div className="min-w-[160px]">
           <p className="font-medium">{modality.modalityName}</p>
           {modality.description && (
             <p className="mt-1 max-w-md truncate text-xs text-muted-foreground">
@@ -48,60 +92,67 @@ export function ModalityTable({
     {
       key: "status",
       header: "Status",
-      headerClassName: "w-[140px] font-semibold",
       render: (modality) => (
-        <Badge
-          variant={modality.status === "ACTIVE" ? "default" : "secondary"}
-          className={
-            modality.status === "ACTIVE"
-              ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100"
-              : ""
-          }
+        <button
+          type="button"
+          onClick={() => onStatusClick(modality)}
+          className="rounded-full focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          aria-label={`Change status of ${modality.modalityName}`}
         >
-          {modality.status === "ACTIVE" ? "Active" : "Inactive"}
-        </Badge>
+          <Badge
+            variant="outline"
+            className={
+              modality.status === "ACTIVE"
+                ? "border-emerald-400 bg-emerald-50 text-emerald-700"
+                : "border-red-400 bg-red-50 text-red-600"
+            }
+          >
+            {modality.status === "ACTIVE" ? "Active" : "Inactive"}
+          </Badge>
+        </button>
       ),
     },
     {
       key: "actions",
       header: "Actions",
-      headerClassName: "w-[150px] text-right font-semibold",
-      cellClassName: "text-right",
+      headerClassName: "text-center print:hidden",
+      cellClassName: "text-center print:hidden",
       render: (modality) => (
-        <div className="flex items-center justify-end gap-1">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            title="View modality"
-            aria-label={`View ${modality.modalityName}`}
-            onClick={() => onView(modality)}
-          >
-            <Eye className="h-4 w-4" />
-          </Button>
+        <div className="flex items-center justify-center">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1 px-2 text-muted-foreground hover:bg-muted hover:text-foreground"
+                aria-label={`Actions for ${modality.modalityName}`}
+              >
+                Actions
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
 
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            title="Edit modality"
-            aria-label={`Edit ${modality.modalityName}`}
-            onClick={() => onEdit(modality)}
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
+            <DropdownMenuContent align="end" className="w-36">
+              <DropdownMenuItem onClick={() => onView(modality)}>
+                <Eye className="mr-2 h-4 w-4" />
+                View
+              </DropdownMenuItem>
 
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            title="Delete modality"
-            aria-label={`Delete ${modality.modalityName}`}
-            className="text-destructive hover:text-destructive"
-            onClick={() => onDelete(modality)}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+              <DropdownMenuItem onClick={() => onEdit(modality)}>
+                <Edit className="mr-2 h-4 w-4" />
+                Edit
+              </DropdownMenuItem>
+
+              <DropdownMenuItem
+                onClick={() => onDelete(modality)}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       ),
     },
@@ -113,7 +164,7 @@ export function ModalityTable({
       data={modalities}
       getRowKey={(modality) => modality._id}
       loading={loading}
-      emptyMessage="No modalities found. Create your first modality to get started."
+      emptyMessage="No modality records found."
     />
   );
 }

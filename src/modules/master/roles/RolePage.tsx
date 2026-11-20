@@ -627,8 +627,8 @@ export default function RolePage() {
           </div>
         </div>
       </div>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 role-no-print">
+<div className="print-area space-y-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 ">
         <KpiCard
           title="Total Roles"
           value={pagination.totalRecords}
@@ -760,7 +760,7 @@ export default function RolePage() {
         </div>
 
         {!loading && roles.length > 0 && (
-          <div className="flex items-center gap-2 border-b border-slate-200 px-5 py-3 ">
+          <div className="print-hide flex items-center gap-2 border-b border-slate-200 px-5 py-3">
             <Checkbox
               checked={allCurrentPageSelected}
               onCheckedChange={(checked) => handleSelectAll(checked === true)}
@@ -798,7 +798,7 @@ export default function RolePage() {
         </div>
 
         {!loading && pagination.totalRecords > 0 && (
-          <div className="flex flex-col gap-3 border-t border-slate-200 px-5 py-3 sm:flex-row sm:items-center sm:justify-between role-no-print">
+          <div className="print-hide flex flex-col gap-3 border-t border-slate-200 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
               <DataTablePageSize
                 value={pageSize}
@@ -815,7 +815,7 @@ export default function RolePage() {
           </div>
         )}
       </section>
-
+</div>
       {loadError && !loading && (
         <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-center print:hidden">
           <p className="font-medium text-destructive">Unable to load roles</p>

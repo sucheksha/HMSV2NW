@@ -710,7 +710,7 @@ export default function DiagnosisPage() {
       ) : (
         <div className="print-area space-y-6">
           {/* PAGE HEADER */}
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+         <div className="print-hide flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
                 <Stethoscope className="h-5 w-5" />
