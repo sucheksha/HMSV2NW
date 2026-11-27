@@ -8,15 +8,17 @@ const api: AxiosInstance = axios.create({
 // Request Interceptor, Automatically attach Access Token
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    const token = localStorage.getItem("jeevix.auth.token");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    if (typeof window !== "undefined") {
+      const token = localStorage.getItem("jeevix.auth.token");
+
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
     }
+
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  },
+  (error) => Promise.reject(error),
 );
 // Response Interceptor, Refresh Access Token when it expires
 let isRefreshing = false;
@@ -41,6 +43,9 @@ api.interceptors.response.use(
   },
   // Failed response
   async (error: AxiosError) => {
+    if (typeof window === "undefined") {
+      return Promise.reject(error);
+    }
     const originalRequest = error.config as InternalAxiosRequestConfig & {
       _retry?: boolean;
     };

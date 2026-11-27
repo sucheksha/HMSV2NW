@@ -7,14 +7,29 @@ import { useFormDirty } from "@/hooks/useFormDirty";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import { createInvestigation, updateInvestigation } from "./investigation.service";
+import { getModalities } from "../imaging-scanning/imagingScanningService";
 
 import type {
   Investigation,
   CreateInvestigationRequest,
   UpdateInvestigationRequest,
 } from "./investigation.types";
+
+type Modality = {
+  _id: string;
+  modalityName: string;
+  modalityCode: string;
+  status?: "ACTIVE" | "INACTIVE";
+};
 
 type InvestigationFormProps = {
   investigation?: Investigation | null;
@@ -62,6 +77,12 @@ const getErrorMessage = (error: unknown): string => {
   return "Something went wrong. Please try again.";
 };
 
+const getModalityId = (modalityId: Investigation["modalityId"]): string => {
+  if (!modalityId) return "";
+
+  return typeof modalityId === "string" ? modalityId : modalityId._id;
+};
+
 export function InvestigationForm({ investigation, onSuccess, onCancel }: InvestigationFormProps) {
   const isEditMode = Boolean(investigation);
 
@@ -73,6 +94,11 @@ export function InvestigationForm({ investigation, onSuccess, onCancel }: Invest
   const [sampleType, setSampleType] = useState("");
   const [turnaroundTime, setTurnaroundTime] = useState("");
   const [description, setDescription] = useState("");
+  const [modalityId, setModalityId] = useState("");
+
+  const [modalities, setModalities] = useState<Modality[]>([]);
+  const [loadingModalities, setLoadingModalities] = useState(true);
+  const [modalityLoadError, setModalityLoadError] = useState("");
 
   const [errors, setErrors] = useState<FormErrors>({});
   const [saving, setSaving] = useState(false);
@@ -89,6 +115,7 @@ export function InvestigationForm({ investigation, onSuccess, onCancel }: Invest
         ? ""
         : String(investigation.turnaroundTime),
     description: investigation?.description ?? "",
+    modalityId: getModalityId(investigation?.modalityId),
   };
 
   const currentFormData = {
@@ -100,10 +127,63 @@ export function InvestigationForm({ investigation, onSuccess, onCancel }: Invest
     sampleType,
     turnaroundTime,
     description,
+    modalityId,
   };
 
   const isDirty = useFormDirty(initialFormData, currentFormData);
 
+  // Load active modalities for the dropdown.
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadModalities = async () => {
+      setLoadingModalities(true);
+      setModalityLoadError("");
+
+      try {
+        const response = await getModalities({
+          status: "ACTIVE",
+          page: 1,
+          limit: 100,
+        });
+
+        if (!isMounted) return;
+
+        const list = Array.isArray(response) ? response : (response?.modalities ?? []);
+
+        setModalities(list);
+
+        // Preserve an existing selection when editing.
+        const existingId = getModalityId(investigation?.modalityId);
+
+        if (existingId) {
+          const existingIsInList = list.some((modality: Modality) => modality._id === existingId);
+
+          // Keep the existing ID even if it is no longer in the active list.
+          if (!existingIsInList) {
+            setModalityId(existingId);
+          }
+        }
+      } catch (error) {
+        if (!isMounted) return;
+
+        setModalityLoadError(getErrorMessage(error));
+        toast.error("Unable to load modalities.");
+      } finally {
+        if (isMounted) {
+          setLoadingModalities(false);
+        }
+      }
+    };
+
+    loadModalities();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [investigation]);
+
+  // Set form fields when opening Add or Edit.
   useEffect(() => {
     if (investigation) {
       setInvestigationName(investigation.investigationName ?? "");
@@ -118,6 +198,7 @@ export function InvestigationForm({ investigation, onSuccess, onCancel }: Invest
           : String(investigation.turnaroundTime),
       );
       setDescription(investigation.description ?? "");
+      setModalityId(getModalityId(investigation.modalityId));
     } else {
       setInvestigationName("");
       setInvestigationCode("");
@@ -127,6 +208,7 @@ export function InvestigationForm({ investigation, onSuccess, onCancel }: Invest
       setSampleType("");
       setTurnaroundTime("");
       setDescription("");
+      setModalityId("");
     }
 
     setErrors({});
@@ -175,11 +257,17 @@ export function InvestigationForm({ investigation, onSuccess, onCancel }: Invest
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!isDirty) {
+    if (!isDirty) return;
+
+    if (!validateForm()) return;
+
+    if (loadingModalities) {
+      toast.error("Please wait while modalities are loading.");
       return;
     }
 
-    if (!validateForm()) {
+    if (modalityLoadError) {
+      toast.error("Cannot save until modalities are loaded successfully.");
       return;
     }
 
@@ -190,16 +278,21 @@ export function InvestigationForm({ investigation, onSuccess, onCancel }: Invest
 
       const parsedTurnaroundTime = trimmedTurnaroundTime ? Number(trimmedTurnaroundTime) : null;
 
+      const commonData = {
+        investigationName: investigationName.trim(),
+        investigationCode: investigationCode.trim().toUpperCase(),
+        loincCode: loincCode.trim() || null,
+        category: category.trim(),
+        type: type.trim(),
+        turnaroundTime: parsedTurnaroundTime,
+        sampleType: sampleType.trim(),
+        description: description.trim(),
+        modalityId: modalityId || null,
+      };
+
       if (isEditMode && investigation) {
         const updateData: UpdateInvestigationRequest = {
-          investigationName: investigationName.trim(),
-          investigationCode: investigationCode.trim().toUpperCase(),
-          loincCode: loincCode.trim() || null,
-          category: category.trim(),
-          type: type.trim(),
-          turnaroundTime: parsedTurnaroundTime,
-          sampleType: sampleType.trim(),
-          description: description.trim(),
+          ...commonData,
         };
 
         await updateInvestigation(investigation._id, updateData);
@@ -207,14 +300,7 @@ export function InvestigationForm({ investigation, onSuccess, onCancel }: Invest
         toast.success("Investigation updated successfully.");
       } else {
         const createData: CreateInvestigationRequest = {
-          investigationName: investigationName.trim(),
-          investigationCode: investigationCode.trim().toUpperCase(),
-          loincCode: loincCode.trim() || null,
-          category: category.trim(),
-          type: type.trim(),
-          turnaroundTime: parsedTurnaroundTime,
-          sampleType: sampleType.trim(),
-          description: description.trim(),
+          ...commonData,
         };
 
         await createInvestigation(createData);
@@ -247,7 +333,6 @@ export function InvestigationForm({ investigation, onSuccess, onCancel }: Invest
 
         if (response?.status === 403) {
           toast.error("You do not have permission to manage investigations.");
-
           return;
         }
 
@@ -372,6 +457,50 @@ export function InvestigationForm({ investigation, onSuccess, onCancel }: Invest
           {errors.sampleType && <p className="text-sm text-destructive">{errors.sampleType}</p>}
         </div>
 
+        {/* MODALITY */}
+        <div className="space-y-2">
+          <label htmlFor="modalityId" className="text-sm font-medium">
+            Modality
+          </label>
+
+          <Select
+            value={modalityId || "NONE"}
+            onValueChange={(value) => setModalityId(value === "NONE" ? "" : value)}
+            disabled={saving || loadingModalities}
+          >
+            <SelectTrigger id="modalityId">
+              <SelectValue
+                placeholder={
+                  loadingModalities ? "Loading modalities..." : "Select modality (optional)"
+                }
+              />
+            </SelectTrigger>
+
+            <SelectContent>
+              <SelectItem value="NONE">No Modality</SelectItem>
+
+              {modalities.map((modality) => (
+                <SelectItem key={modality._id} value={modality._id}>
+                  {modality.modalityName} ({modality.modalityCode})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {modalityLoadError && (
+            <p className="text-sm text-destructive">
+              Unable to load modalities. Refresh the form and try again.
+            </p>
+          )}
+
+          {!modalityLoadError && !loadingModalities && (
+            <p className="text-xs text-muted-foreground">
+              Select a modality for imaging investigations. Leave empty for non-imaging
+              investigations.
+            </p>
+          )}
+        </div>
+
         {/* TURNAROUND TIME */}
         <div className="space-y-2">
           <label htmlFor="turnaroundTime" className="text-sm font-medium">
@@ -418,7 +547,10 @@ export function InvestigationForm({ investigation, onSuccess, onCancel }: Invest
           Cancel
         </Button>
 
-        <Button type="submit" disabled={saving || !isDirty}>
+        <Button
+          type="submit"
+          disabled={saving || !isDirty || loadingModalities || Boolean(modalityLoadError)}
+        >
           {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
 
           {isEditMode ? "Update Investigation" : "Save Investigation"}

@@ -1,5 +1,5 @@
 import api from "@/services/api";
-
+//Hospital profile API
 // ==========================================
 // Hospital Address
 // ==========================================

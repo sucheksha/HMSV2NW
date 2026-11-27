@@ -1,14 +1,29 @@
 import api from "@/services/api";
+
 import type {
   Investigation,
   CreateInvestigationRequest,
   UpdateInvestigationRequest,
+  InvestigationQueryParams,
   InvestigationListResponse,
+  InvestigationListData,
   InvestigationResponse,
 } from "./investigation.types";
 
-export const getInvestigations = async (): Promise<Investigation[]> => {
-  const response = await api.get<InvestigationListResponse>("/master/investigations");
+export const getInvestigations = async (
+  params: InvestigationQueryParams = {},
+): Promise<InvestigationListData> => {
+  const page = Math.max(1, Math.floor(Number(params.page) || 1));
+
+  const limit = Math.min(100, Math.max(1, Math.floor(Number(params.limit) || 10)));
+
+  const response = await api.get<InvestigationListResponse>("/master/investigations", {
+    params: {
+      ...params,
+      page,
+      limit,
+    },
+  });
 
   return response.data.data;
 };
@@ -44,15 +59,7 @@ export const updateInvestigation = async (
 export const deleteInvestigation = async (
   investigationId: string,
 ): Promise<{ message: string }> => {
-  const response = await api.delete<{
-    success: boolean;
-    statusCode: number;
-    message: string;
-    data: unknown;
-    errors: string[];
-  }>(`/master/investigations/${investigationId}`);
+  const response = await api.delete(`/master/investigations/${investigationId}`);
 
-  return {
-    message: response.data.message,
-  };
+  return { message: response.data.message };
 };

@@ -17,27 +17,97 @@ const ENDPOINTS = {
   talukas: "/master/talukas",
 };
 
+export interface PaginatedResponse<T> {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  [key: string]: unknown;
+}
+
+export interface PaginatedStates extends PaginatedResponse<State> {
+  states: State[];
+}
+
+export interface PaginatedDistricts extends PaginatedResponse<District> {
+  districts: District[];
+}
+
+export interface PaginatedTalukas extends PaginatedResponse<Taluka> {
+  talukas: Taluka[];
+}
+
 function unwrap<T>(response: any): T {
   return response?.data?.data ?? response?.data;
 }
 
-function unwrapList<T>(response: any): T[] {
-  const result = unwrap<any>(response);
+function getPaginationMetadata(result: any, params: { page?: number; limit?: number }) {
+  const total = Number(result.total ?? 0);
+  const page = Number(result.page ?? params.page ?? 1);
+  const limit = Number(result.limit ?? params.limit ?? 10);
+  const totalPages = Number(result.totalPages ?? (limit > 0 ? Math.ceil(total / limit) : 0));
 
-  if (Array.isArray(result)) return result;
-  if (Array.isArray(result?.items)) return result.items;
-  if (Array.isArray(result?.states)) return result.states;
-  if (Array.isArray(result?.districts)) return result.districts;
-  if (Array.isArray(result?.talukas)) return result.talukas;
-  if (Array.isArray(result?.results)) return result.results;
+  if (
+    !Number.isFinite(total) ||
+    !Number.isFinite(page) ||
+    !Number.isFinite(limit) ||
+    !Number.isFinite(totalPages) ||
+    total < 0 ||
+    page < 1 ||
+    limit < 1 ||
+    totalPages < 0
+  ) {
+    throw new Error("Invalid pagination metadata returned by the server.");
+  }
 
-  return [];
+  return { total, page, limit, totalPages };
 }
 
-// States
-export async function getStates(params: LocationListParams = {}) {
+function normalizeList<T>(
+  result: any,
+  key: "states" | "districts" | "talukas",
+  params: { page?: number; limit?: number },
+) {
+  if (!result || !Array.isArray(result[key])) {
+    throw new Error(`Unexpected response while loading ${key}.`);
+  }
+
+  return {
+    [key]: result[key] as T[],
+    ...getPaginationMetadata(result, params),
+  };
+}
+
+// States: paginated table request
+export async function getStates(params: LocationListParams = {}): Promise<PaginatedStates> {
   const response = await api.get(ENDPOINTS.states, { params });
-  return unwrapList<State>(response);
+  return normalizeList<State>(unwrap<any>(response), "states", params) as PaginatedStates;
+}
+
+// Load all State options for dropdowns.
+// Requests are still limited to 100 records per API call.
+export async function getAllStates(): Promise<State[]> {
+  const firstPage = await getStates({
+    page: 1,
+    limit: 100,
+    sortBy: "name",
+    sortOrder: "asc",
+  });
+
+  const states = [...firstPage.states];
+
+  for (let page = 2; page <= firstPage.totalPages; page += 1) {
+    const result = await getStates({
+      page,
+      limit: 100,
+      sortBy: "name",
+      sortOrder: "asc",
+    });
+
+    states.push(...result.states);
+  }
+
+  return states;
 }
 
 export async function createState(payload: StateFormValues) {
@@ -58,10 +128,35 @@ export async function deleteState(id: string) {
   return unwrap<unknown>(response);
 }
 
-// Districts
-export async function getDistricts(params: DistrictListParams = {}) {
+// Districts: paginated table request
+export async function getDistricts(params: DistrictListParams = {}): Promise<PaginatedDistricts> {
   const response = await api.get(ENDPOINTS.districts, { params });
-  return unwrapList<District>(response);
+  return normalizeList<District>(unwrap<any>(response), "districts", params) as PaginatedDistricts;
+}
+
+// Load all District options for dropdowns.
+export async function getAllDistricts(): Promise<District[]> {
+  const firstPage = await getDistricts({
+    page: 1,
+    limit: 100,
+    sortBy: "name",
+    sortOrder: "asc",
+  });
+
+  const districts = [...firstPage.districts];
+
+  for (let page = 2; page <= firstPage.totalPages; page += 1) {
+    const result = await getDistricts({
+      page,
+      limit: 100,
+      sortBy: "name",
+      sortOrder: "asc",
+    });
+
+    districts.push(...result.districts);
+  }
+
+  return districts;
 }
 
 export async function createDistrict(payload: DistrictFormValues) {
@@ -82,50 +177,10 @@ export async function deleteDistrict(id: string) {
   return unwrap<unknown>(response);
 }
 
-// Talukas — paginated response
-export interface PaginatedTalukas {
-  talukas: Taluka[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-}
-
+// Talukas: paginated table request
 export async function getTalukas(params: TalukaListParams = {}): Promise<PaginatedTalukas> {
   const response = await api.get(ENDPOINTS.talukas, { params });
-  const result = unwrap<any>(response);
-
-  // Fail clearly if the API response shape is unexpected.
-  // Returning an empty list silently could hide a backend/API issue.
-  if (!result || !Array.isArray(result.talukas)) {
-    throw new Error("Unexpected response while loading Talukas.");
-  }
-
-  const total = Number(result.total ?? 0);
-  const page = Number(result.page ?? params.page ?? 1);
-  const limit = Number(result.limit ?? params.limit ?? 10);
-  const totalPages = Number(result.totalPages ?? (limit > 0 ? Math.ceil(total / limit) : 0));
-
-  if (
-    !Number.isFinite(total) ||
-    !Number.isFinite(page) ||
-    !Number.isFinite(limit) ||
-    !Number.isFinite(totalPages) ||
-    total < 0 ||
-    page < 1 ||
-    limit < 1 ||
-    totalPages < 0
-  ) {
-    throw new Error("Invalid pagination metadata returned for Talukas.");
-  }
-
-  return {
-    talukas: result.talukas as Taluka[],
-    total,
-    page,
-    limit,
-    totalPages,
-  };
+  return normalizeList<Taluka>(unwrap<any>(response), "talukas", params) as PaginatedTalukas;
 }
 
 export async function createTaluka(payload: TalukaFormValues) {

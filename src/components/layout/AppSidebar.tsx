@@ -34,7 +34,7 @@ import {
   Menu,
   X,
   PanelLeftClose,
-  PanelLeftOpen,
+  PanelLeftOpen, ScanLine,
   type LucideIcon,
 } from "lucide-react";
 
@@ -94,6 +94,11 @@ const ADMIN_NAV: NavGroup[] = [
         label: "Roles",
         to: "/module/roles",
         icon: ShieldCheck,
+      },
+      {
+        label: "Imaging & Scanning",
+        to: "/module/imaging-scanning",
+        icon: ScanLine,
       },
     ],
   },
